@@ -217,7 +217,7 @@ public class DirectedGraph<V, D> implements IDirectedIGraph<V, D> {
     /**
      * Detecta ciclos con un DFS iterativo de tres estados: un vértice "en proceso" que
      * se vuelve a encontrar indica una arista hacia atrás, es decir, un ciclo.
-     * Un lazo (u -> u) también cuenta como ciclo.
+     * Un ciclo de un vértice (arista u -> u) también cuenta como ciclo.
      */
     @Override
     public boolean tieneCiclos() {

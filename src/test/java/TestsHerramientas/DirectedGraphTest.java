@@ -109,8 +109,8 @@ public class DirectedGraphTest {
         }
 
         @Test
-        @DisplayName("se admiten lazos (u -> u)")
-        void lazo() {
+        @DisplayName("se admiten ciclos de un vértice (A -> A)")
+        void cicloDeUnVertice() {
             assertTrue(graph.agregarArista("A", "A", 1));
             assertEquals(Set.of("A"), graph.successors("A"));
             assertEquals(Set.of("A"), graph.predecessors("A"));
@@ -168,8 +168,8 @@ public class DirectedGraphTest {
         }
 
         @Test
-        @DisplayName("elimina correctamente un vértice con lazo")
-        void conLazo() {
+        @DisplayName("elimina correctamente un vértice que tiene un ciclo de un vértice (A -> A)")
+        void conCicloDeUnVertice() {
             graph.agregarArista("A", "A", 1);
             assertTrue(graph.removerVertice("A"));
             assertEquals(0, graph.cantidadDeAristas());
@@ -370,8 +370,8 @@ public class DirectedGraphTest {
         }
 
         @Test
-        @DisplayName("un lazo es un ciclo")
-        void lazo() {
+        @DisplayName("un ciclo de un vértice (B -> B) es un ciclo")
+        void cicloDeUnVertice() {
             graph.agregarArista("B", "B", 1);
             assertTrue(graph.tieneCiclos());
         }

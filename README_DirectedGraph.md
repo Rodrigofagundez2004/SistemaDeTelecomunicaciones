@@ -259,13 +259,13 @@ Cubren lo que pide `src/test/java/README.md`: grafo vacío, un vértice, conexos
 - duplicados, `null`, búsqueda con `construirComparable`, orden de inserción, `vertices()` inmodificable.
 
 **Aristas**
-- vértices inexistentes o `null`, arista duplicada (conserva el dato original), `A->B` distinta de `B->A`, lazos `A->A`.
+- vértices inexistentes o `null`, arista duplicada (conserva el dato original), `A->B` distinta de `B->A`, ciclos de un vértice (`A->A`, una arista de un vértice a sí mismo).
 - `eliminarArista`: actualiza sucesores y predecesores, borra solo en el sentido indicado, devuelve `false` si la arista no existe entre vértices existentes.
 - `obtenerArista`: verifica origen, destino, **dato** y `directed()`; devuelve `null` si no existe.
 - `adyacencias`: contenido y orden; vacía para un vértice sin aristas o inexistente.
 
 **Vértices y sus aristas**
-- `removerVertice`: limpia entrantes y salientes, funciona con lazos, el vértice se puede volver a agregar "limpio".
+- `removerVertice`: limpia entrantes y salientes, funciona con ciclos de un vértice, el vértice se puede volver a agregar "limpio".
 - `successors`/`predecessors`: conjuntos exactos, vértice inexistente, copias inmodificables.
 - `gradoDeEntrada`/`gradoDeSalida` (antes no se probaban).
 
@@ -273,7 +273,7 @@ Cubren lo que pide `src/test/java/README.md`: grafo vacío, un vértice, conexos
 - grafo vacío, un vértice, camino sin vuelta (`false`), todos apuntan al primero (`false`, es el caso que la versión anterior respondía mal), ciclo completo (`true`), vértice aislado (`false`).
 
 **`tieneCiclos`** (antes solo había un caso positivo, que un `return true;` fijo hubiera pasado)
-- sin aristas, grafo vacío, ciclo de dos vértices, lazo, **diamante** (DAG, `false`), ciclo en una componente que no es la primera, romper un ciclo al eliminar una arista.
+- sin aristas, grafo vacío, ciclo de dos vértices, ciclo de un vértice (`B->B`), **diamante** (DAG, `false`), ciclo en una componente que no es la primera, romper un ciclo al eliminar una arista.
 
 **Otros**
 - `vaciar`: borra vértices **y** aristas, y el grafo sigue siendo usable.
