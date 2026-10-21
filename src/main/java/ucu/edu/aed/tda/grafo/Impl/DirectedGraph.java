@@ -6,25 +6,48 @@ import ucu.edu.aed.tda.grafo.model.edge.Edge;
 
 import java.util.*;
 
+/**
+ * Grafo dirigido implementado con listas de adyacencia.
+ * <p>
+ * Se mantienen dos estructuras sincronizadas:
+ * <ul>
+ *     <li>{@code salientes}: para cada vértice, sus aristas salientes indexadas por vértice destino.</li>
+ *     <li>{@code entrantes}: para cada vértice, el conjunto de vértices que tienen una arista hacia él.</li>
+ * </ul>
+ * Se usan {@link LinkedHashMap}/{@link LinkedHashSet} para que el orden de iteración
+ * (y por lo tanto el de los recorridos) sea el orden de inserción, y sea reproducible.
+ * <p>
+ * No se admiten vértices {@code null} ni aristas paralelas (a lo sumo una arista u -> v).
+ */
 public class DirectedGraph<V, D> implements IDirectedIGraph<V, D> {
-    private final Map<V, Set<DirectedEdge<V, D>>> adjacencyList; // Lista de adyacencia
+    // vértice origen -> (vértice destino -> arista)
+    private final Map<V, Map<V, DirectedEdge<V, D>>> salientes;
+    // vértice destino -> vértices origen de sus aristas entrantes
+    private final Map<V, Set<V>> entrantes;
 
     public DirectedGraph() {
-        this.adjacencyList = new HashMap<>();
+        this.salientes = new LinkedHashMap<>();
+        this.entrantes = new LinkedHashMap<>();
     }
 
+    /**
+     * @throws NullPointerException si el vértice es null
+     */
     @Override
     public boolean agregarVertice(V vertex) {
-        if (!adjacencyList.containsKey(vertex)) {
-            adjacencyList.put(vertex, new HashSet<>());
-            return true;
+        Objects.requireNonNull(vertex, "El vértice no puede ser null");
+        if (salientes.containsKey(vertex)) {
+            return false;
         }
-        return false;
+        salientes.put(vertex, new LinkedHashMap<>());
+        entrantes.put(vertex, new LinkedHashSet<>());
+        return true;
     }
 
     @Override
-    public V buscarVertice(Comparable criteria) {
-        for (V vertex : adjacencyList.keySet()) {
+    public V buscarVertice(Comparable<V> criteria) {
+        if (criteria == null) return null;
+        for (V vertex : salientes.keySet()) {
             if (criteria.compareTo(vertex) == 0) {
                 return vertex;
             }
@@ -32,178 +55,202 @@ public class DirectedGraph<V, D> implements IDirectedIGraph<V, D> {
         return null;
     }
 
+    /**
+     * Agrega la arista source -> target.
+     * Si ya existe una arista entre esos vértices retorna false y la arista original
+     * (con su dato) se mantiene; para cambiar el dato hay que eliminarla y volver a agregarla.
+     */
     @Override
     public boolean agregarArista(V source, V target, D dato) {
-        if (!adjacencyList.containsKey(source) || !adjacencyList.containsKey(target)) {
+        if (source == null || target == null
+                || !salientes.containsKey(source) || !salientes.containsKey(target)) {
             return false; // Uno de los vértices no existe
         }
-        DirectedEdge<V, D> edge = new DirectedEdge<>(source, target, dato);
-        return adjacencyList.get(source).add(edge); // Agrega la arista dirigida
+        Map<V, DirectedEdge<V, D>> aristasDeSource = salientes.get(source);
+        if (aristasDeSource.containsKey(target)) {
+            return false; // Ya existe la arista
+        }
+        aristasDeSource.put(target, new DirectedEdge<>(source, target, dato));
+        entrantes.get(target).add(source);
+        return true;
     }
 
     @Override
-    public boolean eliminarArista(Comparable source, Comparable target) {
+    public boolean eliminarArista(Comparable<V> source, Comparable<V> target) {
         V sourceVertex = buscarVertice(source);
         V targetVertex = buscarVertice(target);
-
         if (sourceVertex == null || targetVertex == null) {
             return false;
         }
-        return adjacencyList.get(sourceVertex).removeIf(e -> e.target().equals(targetVertex));
+        if (salientes.get(sourceVertex).remove(targetVertex) == null) {
+            return false; // No existía la arista
+        }
+        entrantes.get(targetVertex).remove(sourceVertex);
+        return true;
     }
 
     @Override
-    public boolean removerVertice(Comparable criteria) {
+    public boolean removerVertice(Comparable<V> criteria) {
         V vertex = buscarVertice(criteria);
         if (vertex == null) {
             return false;
         }
 
-        // Elimina todas las aristas entrantes
-        for (Set<DirectedEdge<V, D>> edges : adjacencyList.values()) {
-            edges.removeIf(edge -> edge.target().equals(vertex));
+        // Elimina las aristas entrantes: cada predecesor deja de apuntar al vértice
+        for (V predecesor : entrantes.get(vertex)) {
+            salientes.get(predecesor).remove(vertex);
+        }
+        // Elimina las aristas salientes: cada sucesor deja de tenerlo como predecesor
+        for (V sucesor : salientes.get(vertex).keySet()) {
+            entrantes.get(sucesor).remove(vertex);
         }
 
-        // Elimina el vértice y las aristas salientes
-        adjacencyList.remove(vertex);
+        salientes.remove(vertex);
+        entrantes.remove(vertex);
         return true;
     }
 
+    /**
+     * Vista inmodificable de los vértices: modificarla lanza UnsupportedOperationException.
+     */
     @Override
     public Set<V> vertices() {
-        return adjacencyList.keySet();
+        return Collections.unmodifiableSet(salientes.keySet());
     }
 
     @Override
     public Set<Edge<V, D>> aristas() {
-        Set<Edge<V, D>> edges = new HashSet<>();
-        for (Set<DirectedEdge<V, D>> edgeSet : adjacencyList.values()) {
-            edges.addAll(edgeSet);
+        Set<Edge<V, D>> edges = new LinkedHashSet<>();
+        for (Map<V, DirectedEdge<V, D>> aristasDelVertice : salientes.values()) {
+            edges.addAll(aristasDelVertice.values());
         }
-        return edges;
+        return Collections.unmodifiableSet(edges);
     }
 
     @Override
-    public boolean existeArista(Comparable sourceCriteria, Comparable targetCriteria) {
-        V source = buscarVertice(sourceCriteria);
-        V target = buscarVertice(targetCriteria);
-        if (source == null || target == null) return false;
-
-        for (DirectedEdge<V, D> edge : adjacencyList.get(source)) {
-            if (edge.target().equals(target)) {
-                return true;
-            }
+    public int cantidadDeAristas() {
+        int cantidad = 0;
+        for (Map<V, DirectedEdge<V, D>> aristasDelVertice : salientes.values()) {
+            cantidad += aristasDelVertice.size();
         }
-        return false;
+        return cantidad;
     }
 
     @Override
-    public Edge<V, D> obtenerArista(Comparable sourceCriteria, Comparable targetCriteria) {
+    public boolean existeArista(Comparable<V> sourceCriteria, Comparable<V> targetCriteria) {
+        return obtenerArista(sourceCriteria, targetCriteria) != null;
+    }
+
+    @Override
+    public Edge<V, D> obtenerArista(Comparable<V> sourceCriteria, Comparable<V> targetCriteria) {
         V source = buscarVertice(sourceCriteria);
         V target = buscarVertice(targetCriteria);
         if (source == null || target == null) return null;
-
-        for (DirectedEdge<V, D> edge : adjacencyList.get(source)) {
-            if (edge.target().equals(target)) {
-                return edge;
-            }
-        }
-        return null;
+        return salientes.get(source).get(target);
     }
 
     @Override
-    public List<Edge<V, D>> adyacencias(Comparable verticeCriteria) {
+    public List<Edge<V, D>> adyacencias(Comparable<V> verticeCriteria) {
         V vertex = buscarVertice(verticeCriteria);
         if (vertex == null) return List.of();
-
-        return new ArrayList<>(adjacencyList.get(vertex));
+        return new ArrayList<>(salientes.get(vertex).values());
     }
 
     @Override
-    public Set successors(Comparable criteria) {
+    public Set<V> successors(Comparable<V> criteria) {
         V vertex = buscarVertice(criteria);
         if (vertex == null) return Set.of();
-
-        Set<V> successors = new HashSet<>();
-        for (DirectedEdge<V, D> edge : adjacencyList.get(vertex)) {
-            successors.add(edge.target());
-        }
-        return successors;
+        return Collections.unmodifiableSet(new LinkedHashSet<>(salientes.get(vertex).keySet()));
     }
 
     @Override
-    public Set predecessors(Comparable criteria) {
+    public Set<V> predecessors(Comparable<V> criteria) {
         V vertex = buscarVertice(criteria);
         if (vertex == null) return Set.of();
+        return Collections.unmodifiableSet(new LinkedHashSet<>(entrantes.get(vertex)));
+    }
 
-        Set<V> predecessors = new HashSet<>();
-        for (Map.Entry<V, Set<DirectedEdge<V, D>>> entry : adjacencyList.entrySet()) {
-            for (DirectedEdge<V, D> edge : entry.getValue()) {
-                if (edge.target().equals(vertex)) {
-                    predecessors.add(entry.getKey());
+    /**
+     * Un grafo dirigido es (fuertemente) conexo si desde cualquier vértice se puede
+     * llegar a cualquier otro. Alcanza con verificar que desde un vértice cualquiera
+     * se llega a todos, y que todos llegan a él (recorriendo el grafo transpuesto).
+     * El grafo vacío se considera conexo.
+     */
+    @Override
+    public boolean esConexo() {
+        if (salientes.isEmpty()) return true;
+
+        V start = salientes.keySet().iterator().next();
+        return alcanzables(start, false).size() == salientes.size()
+                && alcanzables(start, true).size() == salientes.size();
+    }
+
+    /**
+     * DFS iterativo (evita StackOverflowError en grafos grandes).
+     *
+     * @param transpuesto si es true recorre las aristas en sentido inverso
+     * @return los vértices alcanzables desde start, incluido start
+     */
+    private Set<V> alcanzables(V start, boolean transpuesto) {
+        Set<V> visited = new HashSet<>();
+        Deque<V> stack = new ArrayDeque<>();
+        stack.push(start);
+        while (!stack.isEmpty()) {
+            V vertex = stack.pop();
+            if (!visited.add(vertex)) continue;
+            Collection<V> vecinos = transpuesto ? entrantes.get(vertex) : salientes.get(vertex).keySet();
+            for (V vecino : vecinos) {
+                if (!visited.contains(vecino)) {
+                    stack.push(vecino);
                 }
             }
         }
-        return predecessors;
-    }
-
-    @Override
-    public boolean esConexo() {
-        if (adjacencyList.isEmpty()) return true;
-
-        // Usar DFS desde un nodo arbitrario y verificar si todos los nodos son alcanzables
-        V start = adjacencyList.keySet().iterator().next();
-        Set<V> visited = new HashSet<>();
-        dfs(start, visited);
-
-        return visited.size() == adjacencyList.size();
-    }
-
-    private void dfs(V vertex, Set<V> visited) {
-        visited.add(vertex);
-        for (DirectedEdge<V, D> edge : adjacencyList.get(vertex)) {
-            if (!visited.contains(edge.target())) {
-                dfs(edge.target(), visited);
-            }
-        }
+        return visited;
     }
 
     @Override
     public void vaciar() {
-        adjacencyList.clear();
+        salientes.clear();
+        entrantes.clear();
     }
 
+    /**
+     * Detecta ciclos con un DFS iterativo de tres estados: un vértice "en proceso" que
+     * se vuelve a encontrar indica una arista hacia atrás, es decir, un ciclo.
+     * Un ciclo de un vértice (arista u -> u) también cuenta como ciclo.
+     */
     @Override
     public boolean tieneCiclos() {
-        Set<V> visited = new HashSet<>();
-        Set<V> recursionStack = new HashSet<>();
+        Set<V> terminados = new HashSet<>();
+        Set<V> enProceso = new HashSet<>();
 
-        for (V vertex : adjacencyList.keySet()) {
-            if (!visited.contains(vertex)) {
-                if (tieneCiclosDFS(vertex, visited, recursionStack)) {
-                    return true;
+        for (V inicio : salientes.keySet()) {
+            if (terminados.contains(inicio)) continue;
+
+            // Cada entrada de la pila guarda el vértice y el iterador de sus sucesores pendientes
+            Deque<Map.Entry<V, Iterator<V>>> stack = new ArrayDeque<>();
+            enProceso.add(inicio);
+            stack.push(Map.entry(inicio, salientes.get(inicio).keySet().iterator()));
+
+            while (!stack.isEmpty()) {
+                Map.Entry<V, Iterator<V>> tope = stack.peek();
+                Iterator<V> pendientes = tope.getValue();
+                if (pendientes.hasNext()) {
+                    V destino = pendientes.next();
+                    if (enProceso.contains(destino)) {
+                        return true; // Encontramos un ciclo
+                    }
+                    if (!terminados.contains(destino)) {
+                        enProceso.add(destino);
+                        stack.push(Map.entry(destino, salientes.get(destino).keySet().iterator()));
+                    }
+                } else {
+                    stack.pop();
+                    enProceso.remove(tope.getKey());
+                    terminados.add(tope.getKey());
                 }
             }
         }
-        return false;
-    }
-
-    private boolean tieneCiclosDFS(V vertex, Set<V> visited, Set<V> recursionStack) {
-        visited.add(vertex);
-        recursionStack.add(vertex);
-
-        for (DirectedEdge<V, D> edge : adjacencyList.get(vertex)) {
-            V destination = edge.target();
-            if (!visited.contains(destination)) {
-                if (tieneCiclosDFS(destination, visited, recursionStack)) {
-                    return true;
-                }
-            } else if (recursionStack.contains(destination)) {
-                return true; // Encontramos un ciclo
-            }
-        }
-
-        recursionStack.remove(vertex);
         return false;
     }
 }
