@@ -2,7 +2,7 @@
 
 Documento base para arrancar el Desafío 2 y 3. Sirve de referencia común: qué es cada grafo, qué clases hay y qué hace cada una. Las justificaciones de acá van después al informe (secciones 2, 3, 4 y 6).
 
-> Los cambios de la revisión 2 y su motivo están explicados en [`cambios-modelado.md`](cambios-modelado.md).
+> Los cambios de las revisiones 2 y 3 y su motivo están explicados en [`cambios-modelado.md`](cambios-modelado.md).
 
 ---
 
@@ -30,7 +30,7 @@ Usamos **dos grafos permanentes** sobre la red existente y **uno temporal** para
 
 - Unidades: latencia en **ms**, ancho de banda en **Mbps**, costo en **USD**.
 - Cada enlace físico es bidireccional pero puede tener latencia distinta por sentido (`latAB`, `latBA`). Si no se indica, son iguales.
-- **Entre dos nodos hay a lo sumo un enlace físico.** La biblioteca no admite aristas paralelas (`agregarArista` devuelve `false` sin avisar), así que `CargadorRed` lanza `IllegalArgumentException` si encuentra un enlace repetido entre el mismo par (en cualquier orden). Si se quiere modelar un enlace redundante entre A y B, se agrega un nodo intermedio (por ejemplo un `SWITCH`) para que sean dos caminos distintos.
+- **Entre dos nodos hay a lo sumo un enlace físico.** La biblioteca no admite aristas paralelas (`agregarArista` devuelve `false` sin avisar), así que `Red.agregarEnlace` lanza `IllegalArgumentException` si recibe un enlace repetido entre el mismo par (en cualquier orden). Si se quiere modelar un enlace redundante entre A y B, se agrega un nodo intermedio (por ejemplo un `SWITCH`) para que sean dos caminos distintos.
 - Los nodos **cliente** (`OFICINA`, `EDIFICIO`, `PUNTO_DE_ACCESO`) tienen `usuarios`. La demanda estimada es `usuarios × consumoPorUsuario(tipo)`:
 
 | Tipo | Consumo por usuario (supuesto) |
@@ -51,38 +51,23 @@ Usamos **dos grafos permanentes** sobre la red existente y **uno temporal** para
 
 ---
 
-## 3. Datos de entrada (`src/main/resources/data/`)
+## 3. Datos: `RedDeEjemplo` (`telecom.datos`)
 
-**`nodos.csv`**
-```
-id,tipo,usuarios,capacidad
-DC-MVD,DATA_CENTER,0,5000
-R-CORE-1,ROUTER,0,0
-OF-CENTRO,OFICINA,40,0
-ED-POCITOS,EDIFICIO,120,0
-```
+**No se carga nada desde archivos.** La red se arma en código con `RedDeEjemplo.crear()`, que llama a `red.agregarNodo(...)` y `red.agregarEnlace(...)`. Cada llamada devuelve una red nueva, así cada test o demo puede fallar nodos sin afectar a los demás.
 
-**`enlaces.csv`** — una fila por enlace físico; el cargador genera los 2 arcos dirigidos y la arista no dirigida. No puede haber dos filas para el mismo par de nodos.
-```
-origen,destino,lat_ab,lat_ba,tipo,ancho_banda,costo
-DC-MVD,R-CORE-1,1.0,1.2,FIBRA,10000,8000
-R-CORE-1,OF-CENTRO,3.0,3.0,COBRE,1000,1500
-```
+Red de ejemplo: 25 nodos (3 data centers, 5 routers, 4 switches, 1 servidor, 12 clientes) y 26 enlaces. Incluye a propósito, cada caso con su test en `RedDeEjemploTest`:
+- dos caminos de igual costo (R-CORE-1 → R-CORE-3: 4 ms por R-CORE-2 y por R-CORE-4);
+- un par con latencia asimétrica (radioenlace R-CORE-4 ↔ R-ESTE: 8 ms de ida, 12 de vuelta);
+- puentes (R-CORE-4 ↔ R-ESTE, R-CORE-3 ↔ DC-NORTE) y puntos de articulación (R-CORE-3, R-CORE-4, R-ESTE, los switches);
+- un DC sobrecargado (DC-ESTE: capacidad 200, la región este suma 250 usuarios);
+- un enlace saturado (ED-POCITOS demanda 1800 Mbps sobre un cobre de 1000);
+- un candidato a nuevo data center (SRV-CACHE, servidor en el núcleo).
 
-**`oficinas_nuevas.csv`** — nodos que todavía no están conectados (no entran a ruteo ni físico).
-```
-id,tipo,usuarios,capacidad
-OF-CARRASCO,OFICINA,30,0
-```
+El diagrama de la red está en el javadoc de `RedDeEjemplo`.
 
-**`conexiones_posibles.csv`**
-```
-origen,destino,tipo,ancho_banda,costo
-OF-CARRASCO,R-CORE-1,FIBRA,1000,12000
-OF-CARRASCO,ED-POCITOS,RADIOENLACE,300,4000
-```
-
-Dataset de ejemplo: ~25 nodos, 3 data centers, routers de núcleo, oficinas y edificios. Tiene que incluir a propósito: al menos un punto de articulación, un puente, un par con latencia asimétrica, dos caminos de igual costo, un DC que quede sobrecargado y un enlace que quede saturado.
+**Datos para el cableado.** Las oficinas nuevas y las conexiones posibles también se arman en código, en `RedDeEjemplo` (se implementan junto con `CableadoService`):
+- `List<Nodo> oficinasNuevas()` — nodos que todavía no están conectados; **no** se agregan a la `Red` (no entran a ruteo ni físico).
+- `List<Enlace> conexionesPosibles(Red red, List<Nodo> oficinasNuevas)` — enlaces que se podrían instalar, con su costo. Pueden unir una oficina nueva con un nodo de la red o dos oficinas nuevas entre sí. Tienen que incluir al menos una oficina que **no** se pueda conectar, para probar `noConectables`.
 
 ---
 
@@ -93,6 +78,7 @@ ucu.edu.aed.tda.grafo        ← biblioteca (Desafío 1)
 ucu.edu.aed.tda.grafo.Impl   ← + VistaFiltrada
 ucu.edu.aed.telecom.model    ← dominio
 ucu.edu.aed.telecom.service  ← lógica (usa la biblioteca)
+ucu.edu.aed.telecom.datos    ← RedDeEjemplo (la red armada en código)
 ucu.edu.aed.telecom.App      ← menú/demo por consola
 ```
 
@@ -162,8 +148,7 @@ ucu.edu.aed.telecom.App      ← menú/demo por consola
 - Atributos: `IDirectedIGraph<V, D> base`, `Predicate<V> nodoOk`, `Predicate<D> aristaOk`
 - Métodos que filtran: `vertices()`, `aristas()`, `adyacencias()`, `successors()`, `predecessors()`, `buscarVertice()`, `existeArista()`, `obtenerArista()`
 - **Regla obligatoria:** una arista se ve solo si `aristaOk` **y** sus dos extremos cumplen `nodoOk`. No es un detalle: `floyd()` recorre `aristas()` y busca el índice de cada extremo en `vertices()`; si apareciera una arista con un extremo oculto, el índice sería -1 y se rompería con `ArrayIndexOutOfBoundsException`. Va con test propio.
-- `esConexo()`: conexidad **fuerte**, igual que `DirectedGraph` (desde un vértice se llega a todos y todos llegan a él), calculada sobre la vista.
-- `tieneCiclos()`: DFS de tres estados sobre la vista, igual que `DirectedGraph`.
+- `esConexo()` y `tieneCiclos()`: **reutilizan los de `DirectedGraph`**. La vista arma un `DirectedGraph` con solo lo visible (`copiaVisible()`, O(V+E)) y le hace la pregunta. No se puede delegar directo en el grafo base porque respondería sobre el grafo completo, incluidos los ocultos; y los métodos de `DirectedGraph` leen sus mapas internos, así que no hay forma de pasarles el filtro.
 - Los mutadores (`agregar…`, `remover…`, `vaciar`) lanzan `UnsupportedOperationException`.
 
 Un solo mecanismo resuelve cuatro cosas, y los algoritmos de la biblioteca no se tocan porque solo ven la interfaz:
@@ -173,11 +158,6 @@ Un solo mecanismo resuelve cuatro cosas, y los algoritmos de la biblioteca no se
 - **Ruta alternativa:** ocultar los nodos intermedios **y** los enlaces de la ruta principal
 
 ### 4.3 Servicios (`telecom.service`)
-
-**`CargadorRed`**
-- `Red cargar(Path nodos, Path enlaces)` — lanza `IllegalArgumentException` ante un enlace repetido entre el mismo par de nodos, con el número de línea
-- `List<Nodo> cargarOficinasNuevas(Path archivo)`
-- `List<Enlace> cargarConexionesPosibles(Path archivo, Red red, List<Nodo> oficinasNuevas)`
 
 **`RuteoService`** — siempre trabaja sobre `red.vistaActiva()`, así respeta las fallas.
 - `Ruta rutaMenorLatencia(String origen, String destino)` → Dijkstra
@@ -211,7 +191,7 @@ Un solo mecanismo resuelve cuatro cosas, y los algoritmos de la biblioteca no se
 
 **`ConsultasService`** — las 5 consultas propias (sección 7).
 
-**`App`** — carga los CSV y muestra un menú por consola que ejecuta cada operación.
+**`App`** — crea la red con `RedDeEjemplo.crear()` y muestra un menú por consola que ejecuta cada operación.
 
 ---
 
@@ -301,15 +281,15 @@ Las optimizaciones van **en este orden**, porque la segunda solo tiene sentido d
 - [ ] Tests de `dijkstra`, `floyd`, `warshall`, `obtenerExcentricidad` y `obtenerCentroGrafo` (hoy no tienen ninguno; así se escapó el bug de `getPath`).
 - [ ] `kruskal`, `prim`, `searchMinEdge`, `puntosDeArticulacion` siguen en `"COMPLETAR"`. Kruskal con union-find.
 - [ ] Agregar `puentes(IUndirectedGraph)` en `UndirectedGraphAlgorithms` (método extra, fuera de la interfaz).
-- [ ] `VistaFiltrada` completa: incluye `tieneCiclos()` y `esConexo()` (conexidad fuerte), y un test de que nunca devuelve aristas con un extremo oculto.
+- [x] `VistaFiltrada` completa: incluye `tieneCiclos()` y `esConexo()` (conexidad fuerte, reutilizando `DirectedGraph`), y un test de que nunca devuelve aristas con un extremo oculto.
 - [ ] Confirmar con las filminas la definición de **excentricidad**: hoy es el máximo de las distancias *desde* v; la bibliografía clásica la define como el máximo de las distancias *hacia* v (máximo de la columna de Floyd).
 
 ---
 
 ## 10. Convenciones
 
-- Tests de dominio en `src/test/java/telecom/`, con una red chica armada en el test (no depender del CSV grande).
+- Tests de dominio en `src/test/java/telecom/`, con una red chica armada en el test para los casos puntuales; `RedDeEjemplo.crear()` para los casos que necesitan la red completa.
 - Cada servicio recibe la `Red` por constructor.
 - Los servicios buscan nodos por `id` (`String`) usando `red.getNodo(id)`; si no existe, lanzan `IllegalArgumentException`.
 - Ningún servicio de consulta o simulación modifica la red: solo `fallar…`/`restaurar…` lo hacen.
-- Casos borde a cubrir en cada servicio: red vacía, nodo inexistente, nodo aislado, destino inalcanzable, todos los DC caídos, cliente sin servicio, empates de costo, enlace repetido en el CSV, ruta principal de un solo enlace.
+- Casos borde a cubrir en cada servicio: red vacía, nodo inexistente, nodo aislado, destino inalcanzable, todos los DC caídos, cliente sin servicio, empates de costo, enlace repetido, ruta principal de un solo enlace.

@@ -1,10 +1,35 @@
-# Cambios en el modelado (revisión 2)
+# Cambios en el modelado
 
 Resumen para el equipo de qué cambió en [`modelado.md`](modelado.md) y **por qué**. Cada punto tiene: qué decía antes, qué problema tenía (con un ejemplo), qué cambiamos y una frase para explicarlo rápido.
 
-No se tocó código: son decisiones de diseño a tener en cuenta cuando implementemos. El formato de los CSV queda como estaba en nuestro modelado.
+---
+
+# Revisión 3
+
+### R3.1 No se carga nada desde CSV
+
+- **Antes:** la red, las oficinas nuevas y las conexiones posibles se leían de cuatro archivos CSV con un `CargadorRed`.
+- **Decisión del equipo:** no usamos archivos. La red se arma en código con `RedDeEjemplo.crear()` (25 nodos, 26 enlaces), que ya está implementada y testeada.
+- **Cambios:**
+  - La sección 3 del modelado describe `RedDeEjemplo` y los casos que incluye a propósito.
+  - Se sacó `CargadorRed` del modelado, y del código su clase esqueleto y los dos `.csv` vacíos de `src/main/resources/data/`.
+  - Las oficinas nuevas y las conexiones posibles para el cableado salen de dos métodos de `RedDeEjemplo`: `oficinasNuevas()` y `conexionesPosibles(red, oficinasNuevas)`. Se implementan junto con `CableadoService`.
+  - El control de enlaces repetidos, que antes iba a hacer el cargador, lo hace `Red.agregarEnlace`.
+- **En una frase:** *"Los datos de la red están escritos en código, en `RedDeEjemplo`; no hay archivos que leer."*
+
+### R3.2 `VistaFiltrada` reutiliza `esConexo` y `tieneCiclos` de `DirectedGraph`
+
+- **Antes:** la vista tenía su propia copia de los dos algoritmos, iguales a los de `DirectedGraph` pero recorriendo solo lo visible.
+- **Problema:** era el mismo algoritmo escrito dos veces. Si se corregía un bug en uno, el otro quedaba mal.
+- **Por qué no se puede delegar directo:** `base.tieneCiclos()` responde sobre el grafo **completo**, incluidos los nodos caídos. Por ejemplo, con `A → B → C → A` y B caído, la vista no tiene ciclos pero el grafo base sí. Tampoco sirve heredar de `DirectedGraph`, porque sus métodos leen el mapa interno `salientes` y no hay dónde meter el filtro.
+- **Cambio:** la vista arma un `DirectedGraph` nuevo con solo lo visible (`copiaVisible()`, O(V+E)) y le hace la pregunta. El algoritmo queda escrito una sola vez, en `DirectedGraph`.
+- **En una frase:** *"La vista no puede pasarle su filtro a DirectedGraph, así que le pasa una copia de lo que se ve."*
 
 ---
+
+# Revisión 2
+
+> En esta revisión todavía se pensaba cargar la red desde CSV; eso se cambió en la revisión 3.
 
 ## Cambios que modifican el diseño
 
@@ -16,11 +41,11 @@ No se tocó código: son decisiones de diseño a tener en cuenta cuando implemen
 - **Limitación que declaramos en el informe:** calcular una ruta y después otra sin la primera no siempre encuentra dos rutas disjuntas aunque existan, porque la primera puede pasar justo por donde tenía que pasar la segunda. El algoritmo exacto es Suurballe; no lo implementamos, pero lo mencionamos para mostrar que conocemos el límite.
 - **En una frase:** *"Si solo ocultábamos nodos, una ruta directa A→B se devolvía a sí misma como alternativa."*
 
-### 2. A lo sumo un enlace entre dos nodos (y el cargador lo controla)
+### 2. A lo sumo un enlace entre dos nodos (y la red lo controla)
 
 - **Antes:** no se decía nada sobre dos enlaces entre los mismos dos nodos.
 - **Problema:** nuestra biblioteca **no admite aristas paralelas**. Si agregamos un segundo enlace entre A y B, `agregarArista` devuelve `false` y el enlace **desaparece sin aviso**. Justo en una red de telecomunicaciones, dos cables entre los mismos equipos es un caso típico de redundancia, y lo perderíamos sin darnos cuenta.
-- **Cambio:** queda como supuesto que hay a lo sumo un enlace por par, y `CargadorRed` / `Red.agregarEnlace` lanzan `IllegalArgumentException` si encuentran uno repetido (indicando la línea del CSV). Si alguien quiere modelar un enlace redundante, agrega un nodo intermedio (un `SWITCH`) y quedan dos caminos distintos.
+- **Cambio:** queda como supuesto que hay a lo sumo un enlace por par, y `Red.agregarEnlace` lanza `IllegalArgumentException` si recibe uno repetido. Si alguien quiere modelar un enlace redundante, agrega un nodo intermedio (un `SWITCH`) y quedan dos caminos distintos.
 - **En una frase:** *"La biblioteca descartaba en silencio el segundo cable entre dos equipos; ahora es un error explícito."*
 
 ### 3. Las simulaciones de fallas ya no modifican la red
@@ -106,4 +131,4 @@ Se agregaron a los supuestos:
 
 - Decía `HashMap`, pero la implementación usa `LinkedHashMap`. Corregido.
 - La complejidad O(E log E) de Kruskal **solo vale con union-find**. Quedó aclarado en la tabla y en los pendientes.
-- Se agregaron casos borde a las convenciones (cliente sin servicio, enlace repetido en el CSV, ruta principal de un solo enlace) y requisitos al dataset (un DC sobrecargado y un enlace saturado, para poder mostrar las consultas nuevas).
+- Se agregaron casos borde a las convenciones (cliente sin servicio, enlace repetido, ruta principal de un solo enlace) y requisitos al dataset (un DC sobrecargado y un enlace saturado, para poder mostrar las consultas nuevas).
