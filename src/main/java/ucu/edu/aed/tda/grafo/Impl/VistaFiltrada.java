@@ -97,70 +97,32 @@ public class VistaFiltrada<V, D> implements IDirectedIGraph<V, D> {
     }
 
     /**
-     * Conexidad fuerte, igual que {@link DirectedGraph#esConexo()}: desde un vértice cualquiera
-     * se llega a todos y todos llegan a él. La vista vacía se considera conexa.
+     * Conexidad fuerte sobre lo visible. Reutiliza {@link DirectedGraph#esConexo()} aplicado a una
+     * copia de la vista: llamar a {@code base.esConexo()} respondería sobre el grafo completo,
+     * incluidos los vértices y aristas ocultos.
      */
     @Override
     public boolean esConexo() {
-        Set<V> visibles = vertices();
-        if (visibles.isEmpty()) return true;
-
-        V start = visibles.iterator().next();
-        return alcanzables(start, false).size() == visibles.size()
-                && alcanzables(start, true).size() == visibles.size();
+        return copiaVisible().esConexo();
     }
 
-    /** Detecta ciclos sobre la vista con un DFS iterativo de tres estados, como {@link DirectedGraph#tieneCiclos()}. */
+    /** Ciclos sobre lo visible. Reutiliza {@link DirectedGraph#tieneCiclos()} igual que {@link #esConexo()}. */
     @Override
     public boolean tieneCiclos() {
-        Set<V> terminados = new HashSet<>();
-        Set<V> enProceso = new HashSet<>();
-
-        for (V inicio : vertices()) {
-            if (terminados.contains(inicio)) continue;
-
-            Deque<Map.Entry<V, Iterator<V>>> stack = new ArrayDeque<>();
-            enProceso.add(inicio);
-            stack.push(Map.entry(inicio, sucesoresVisibles(inicio).iterator()));
-
-            while (!stack.isEmpty()) {
-                Map.Entry<V, Iterator<V>> tope = stack.peek();
-                Iterator<V> pendientes = tope.getValue();
-                if (pendientes.hasNext()) {
-                    V destino = pendientes.next();
-                    if (enProceso.contains(destino)) {
-                        return true; // Arista hacia atrás: ciclo
-                    }
-                    if (!terminados.contains(destino)) {
-                        enProceso.add(destino);
-                        stack.push(Map.entry(destino, sucesoresVisibles(destino).iterator()));
-                    }
-                } else {
-                    stack.pop();
-                    enProceso.remove(tope.getKey());
-                    terminados.add(tope.getKey());
-                }
-            }
-        }
-        return false;
+        return copiaVisible().tieneCiclos();
     }
 
-    /** DFS iterativo sobre la vista; si transpuesto es true recorre las aristas en sentido inverso. */
-    private Set<V> alcanzables(V start, boolean transpuesto) {
-        Set<V> visited = new HashSet<>();
-        Deque<V> stack = new ArrayDeque<>();
-        stack.push(start);
-        while (!stack.isEmpty()) {
-            V vertex = stack.pop();
-            if (!visited.add(vertex)) continue;
-            Set<V> vecinos = transpuesto ? predecesoresVisibles(vertex) : sucesoresVisibles(vertex);
-            for (V vecino : vecinos) {
-                if (!visited.contains(vecino)) {
-                    stack.push(vecino);
-                }
-            }
+    /**
+     * Copia en un DirectedGraph nuevo solo los vértices y aristas visibles, en O(V + E).
+     * Las aristas copiadas comparten el dato de las originales.
+     */
+    private DirectedGraph<V, D> copiaVisible() {
+        DirectedGraph<V, D> copia = new DirectedGraph<>();
+        copia.agregarVertices(vertices());
+        for (Edge<V, D> e : aristas()) {
+            copia.agregarArista(e.source(), e.target(), e.dato());
         }
-        return visited;
+        return copia;
     }
 
     // Precondición de los tres auxiliares: vertex es visible.
