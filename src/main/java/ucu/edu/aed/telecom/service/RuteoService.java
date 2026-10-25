@@ -1,23 +1,51 @@
 package ucu.edu.aed.telecom.service;
 
+import java.util.List;
+
 import ucu.edu.aed.tda.grafo.IDirectedIGraph;
+import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
 import ucu.edu.aed.tda.grafo.model.result.IDijkstraResult;
-import ucu.edu.aed.tda.grafo.model.result.IFloydWarshallResult;
 import ucu.edu.aed.telecom.model.Enlace;
 import ucu.edu.aed.telecom.model.Nodo;
+import ucu.edu.aed.telecom.model.PesoLatencia;
+import ucu.edu.aed.telecom.model.Red;
+import ucu.edu.aed.telecom.model.Ruta;
 
 /** Ruteo: menor latencia entre dos nodos y tabla de ruteo completa. */
 public class RuteoService {
 
-    /** TODO: ruta de menor latencia entre origen y destino (con nodos intermedios). */
-    public IDijkstraResult<Nodo> rutaDeMenorLatencia(IDirectedIGraph<Nodo, Enlace> red, Nodo origen) {
-        throw new UnsupportedOperationException("TODO: rutaDeMenorLatencia");
+    private final Red red;
+    private final DirectedGraphAlgorithms algoritmos = new DirectedGraphAlgorithms();
+
+    public RuteoService(Red red) {
+        this.red = red;
+    }
+
+    /**
+     * Ruta de menor latencia de origen a destino usando nodos y enlaces activos.
+     * Si no hay ruta (o alguno de los dos está caído) devuelve Ruta.inexistente().
+     *
+     */
+    public Ruta rutaDeMenorLatencia(String idOrigen, String idDestino) {
+        return calcularRuta(red.vistaActiva(), idOrigen, idDestino);
     }
 
     /** TODO: tabla de ruteo completa (latencia mínima y camino entre todos los pares). */
-    public IFloydWarshallResult<Nodo> tablaDeRuteo(IDirectedIGraph<Nodo, Enlace> red) {
+    public Ruta tablaDeRuteo(IDirectedIGraph<Nodo, Enlace> red) {
         throw new UnsupportedOperationException("TODO: tablaDeRuteo");
     }
 
-    /** TODO (opcional, se valora): ruteo con ancho de banda mínimo requerido. */
+    /** Corre Dijkstra desde el origen sobre la vista recibida y arma la Ruta hasta el destino. */
+    private Ruta calcularRuta(IDirectedIGraph<Nodo, PesoLatencia> vista, String idOrigen, String idDestino) {
+        Nodo origen = red.getNodo(idOrigen);
+        Nodo destino = red.getNodo(idDestino);
+
+        IDijkstraResult<Nodo> resultado = algoritmos.dijkstra(vista.construirComparable(origen), vista);
+        List<Nodo> camino = resultado.getPath(destino);
+
+        if (camino.isEmpty())
+            return Ruta.inexistente();
+
+        return new Ruta(camino, resultado.getCost(destino));
+    }
 }
