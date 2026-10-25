@@ -6,7 +6,7 @@ import ucu.edu.aed.tda.grafo.IDirectedIGraph;
 import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
 import ucu.edu.aed.tda.grafo.Impl.VistaFiltrada;
 import ucu.edu.aed.tda.grafo.model.result.IDijkstraResult;
-import ucu.edu.aed.telecom.model.Enlace;
+import ucu.edu.aed.tda.grafo.model.result.IFloydWarshallResult;
 import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.PesoLatencia;
 import ucu.edu.aed.telecom.model.Red;
@@ -46,9 +46,21 @@ public class RuteoService {
         return calcularRuta(vista, idOrigen, idDestino);
     }
 
-    /** TODO: tabla de ruteo completa (latencia mínima y camino entre todos los pares). */
-    public Ruta tablaDeRuteo(IDirectedIGraph<Nodo, Enlace> red) {
-        throw new UnsupportedOperationException("TODO: tablaDeRuteo");
+    /**
+     * Tabla de ruteo completa: latencia mínima y camino entre todos los pares de nodos activos.
+     * Para un par sin conexión (o con un nodo caído) getCost da infinito y getPath, lista vacía.
+     */
+    public IFloydWarshallResult tablaDeRuteo() {
+        return algoritmos.floyd(red.vistaActiva());
+    }
+
+    /**
+     * Latencia de ida más latencia de vuelta, leídas de una tablavya calculada. 
+     * Recibe la tabla para que quien llama muchas veces (CDN) corra Floyd una sola vez.
+     * Si no hay ruta en alguno de los dos sentidos devuelve infinito.
+     */
+    public double rtt(IFloydWarshallResult<Nodo> tabla, Nodo a, Nodo b) {
+        return tabla.getCost(a, b) + tabla.getCost(b, a);
     }
 
     /** Corre Dijkstra desde el origen sobre la vista recibida y arma la Ruta hasta el destino. */

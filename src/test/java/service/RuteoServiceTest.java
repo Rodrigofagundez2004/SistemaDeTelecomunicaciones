@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
+import ucu.edu.aed.tda.grafo.model.result.IFloydWarshallResult;
 import ucu.edu.aed.telecom.model.TipoEnlace;
 import ucu.edu.aed.telecom.model.TipoNodo;
 import ucu.edu.aed.telecom.datos.RedDeEjemplo;
@@ -162,5 +162,49 @@ public class RuteoServiceTest {
     void anchoDeBandaNegativo() {
         assertThrows(IllegalArgumentException.class,
                 () -> ruteo.rutaConAnchoDeBandaMinimo("OF-CENTRO", "ED-CORDON", -1));
+    }
+
+    @Test
+    @DisplayName("Tabla de ruteo: da el mismo camino y latencia que Dijkstra")
+    void tablaCoincideConDijkstraEnUnPar() {
+        IFloydWarshallResult<Nodo> tabla = ruteo.tablaDeRuteo();
+        Nodo origen = red.getNodo("OF-CENTRO");
+        Nodo destino = red.getNodo("ED-PUNTA-DEL-ESTE");
+
+        assertEquals(14.5, tabla.getCost(origen, destino));
+        assertEquals(ruteo.rutaDeMenorLatencia("OF-CENTRO", "ED-PUNTA-DEL-ESTE").nodos(),
+                tabla.getPath(origen, destino));
+    }
+
+    @Test
+    @DisplayName("Tabla de ruteo: respeta las fallas de la red")
+    void tablaRespetaFallas() {
+        red.fallarNodo("R-CORE-4");
+        IFloydWarshallResult<Nodo> tabla = ruteo.tablaDeRuteo();
+
+        assertFalse(tabla.connected(red.getNodo("OF-CENTRO"), red.getNodo("ED-PUNTA-DEL-ESTE")));
+        assertTrue(tabla.getPath(red.getNodo("OF-CENTRO"), red.getNodo("ED-PUNTA-DEL-ESTE")).isEmpty());
+        // el resto de la red sigue conectada
+        assertTrue(tabla.connected(red.getNodo("OF-CENTRO"), red.getNodo("ED-POCITOS")));
+    }
+
+    @Test
+    @DisplayName("RTT: suma la ida y la vuelta, y es igual en los dos sentidos")
+    void rttSumaIdaYVuelta() {
+        IFloydWarshallResult<Nodo> tabla = ruteo.tablaDeRuteo();
+        Nodo of = red.getNodo("OF-CENTRO");
+        Nodo pe = red.getNodo("ED-PUNTA-DEL-ESTE");
+
+        assertEquals(33.0, ruteo.rtt(tabla, of, pe));   // 14.5 de ida + 18.5 de vuelta
+        assertEquals(ruteo.rtt(tabla, of, pe), ruteo.rtt(tabla, pe, of));
+    }
+
+    @Test
+    @DisplayName("RTT: sin ruta es infinito")
+    void rttSinRuta() {
+        red.fallarNodo("R-CORE-4");
+
+        assertEquals(Double.POSITIVE_INFINITY,
+                ruteo.rtt(ruteo.tablaDeRuteo(), red.getNodo("OF-CENTRO"), red.getNodo("ED-PUNTA-DEL-ESTE")));
     }
 }
