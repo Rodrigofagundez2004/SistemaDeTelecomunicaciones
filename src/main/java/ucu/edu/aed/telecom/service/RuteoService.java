@@ -59,7 +59,7 @@ public class RuteoService {
      * Recibe la tabla para que quien llama muchas veces (CDN) corra Floyd una sola vez.
      * Si no hay ruta en alguno de los dos sentidos devuelve infinito.
      */
-    public double rtt(IFloydWarshallResult<Nodo> tabla, Nodo a, Nodo b) {
+    public double latenciaIdaYVuelta(IFloydWarshallResult<Nodo> tabla, Nodo a, Nodo b) {
         return tabla.getCost(a, b) + tabla.getCost(b, a);
     }
 

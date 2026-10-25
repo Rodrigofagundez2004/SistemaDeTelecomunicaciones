@@ -189,22 +189,22 @@ public class RuteoServiceTest {
     }
 
     @Test
-    @DisplayName("RTT: suma la ida y la vuelta, y es igual en los dos sentidos")
-    void rttSumaIdaYVuelta() {
+    @DisplayName("latenciaIdaYVuelta: suma la ida y la vuelta, y es igual en los dos sentidos")
+    void latenciaIdaYVueltaSumaIdaYVuelta() {
         IFloydWarshallResult<Nodo> tabla = ruteo.tablaDeRuteo();
         Nodo of = red.getNodo("OF-CENTRO");
         Nodo pe = red.getNodo("ED-PUNTA-DEL-ESTE");
 
-        assertEquals(33.0, ruteo.rtt(tabla, of, pe));   // 14.5 de ida + 18.5 de vuelta
-        assertEquals(ruteo.rtt(tabla, of, pe), ruteo.rtt(tabla, pe, of));
+        assertEquals(33.0, ruteo.latenciaIdaYVuelta(tabla, of, pe));   // 14.5 de ida + 18.5 de vuelta
+        assertEquals(ruteo.latenciaIdaYVuelta(tabla, of, pe), ruteo.latenciaIdaYVuelta(tabla, pe, of));
     }
 
     @Test
-    @DisplayName("RTT: sin ruta es infinito")
+    @DisplayName("latenciaIdaYVuelta: sin ruta es infinito")
     void rttSinRuta() {
         red.fallarNodo("R-CORE-4");
 
         assertEquals(Double.POSITIVE_INFINITY,
-                ruteo.rtt(ruteo.tablaDeRuteo(), red.getNodo("OF-CENTRO"), red.getNodo("ED-PUNTA-DEL-ESTE")));
+                ruteo.latenciaIdaYVuelta(ruteo.tablaDeRuteo(), red.getNodo("OF-CENTRO"), red.getNodo("ED-PUNTA-DEL-ESTE")));
     }
 }
