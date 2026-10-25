@@ -1,7 +1,6 @@
 package ucu.edu.aed.tda.grafo.Impl;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -101,11 +100,11 @@ public class DirectedGraphAlgorithms implements IDirectedGraphAlgorithms {
         }
         costos.put(origen, 0.0);
 
-        PriorityQueue<V> cola = new PriorityQueue<>(Comparator.comparingDouble(costos::get));
-        cola.add(origen);
+        PriorityQueue<Map.Entry<V, Double>> cola = new PriorityQueue<>(Map.Entry.comparingByValue());
+        cola.add(Map.entry(origen, 0.0));
 
         while (!cola.isEmpty()) {
-            V u = cola.poll();
+            V u = cola.poll().getKey();
             
             if (visitados.contains(u)) continue;
             visitados.add(u);
@@ -121,7 +120,7 @@ public class DirectedGraphAlgorithms implements IDirectedGraphAlgorithms {
                     if (nuevaDistancia < costos.get(v)) {
                         costos.put(v, nuevaDistancia);
                         predecesores.put(v, u);
-                        cola.add(v);
+                        cola.add(Map.entry(v, nuevaDistancia));
                     }
                 }
             }
