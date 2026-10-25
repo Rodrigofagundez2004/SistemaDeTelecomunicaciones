@@ -7,7 +7,7 @@ import java.util.List;
 public class FloydWarshallResult<V> implements IFloydWarshallResult<V> {
     private final List<V> vertices;
     private final double[][] costMatrix;
-    private final int[][] predecessorMatrix; // Matriz de índices
+    private final int[][] predecessorMatrix;
 
     public FloydWarshallResult(List<V> vertices, double[][] costMatrix, int[][] predecessorMatrix) {
         this.vertices = vertices;
@@ -36,18 +36,36 @@ public class FloydWarshallResult<V> implements IFloydWarshallResult<V> {
     public List<V> getPath(V source, V target) {
         int i = getIndex(source);
         int j = getIndex(target);
-        if (i == -1 || j == -1 || !connected(source, target)) return Collections.emptyList();
+
+        if (i == -1 || j == -1 || !connected(source, target)) {
+            return Collections.emptyList();
+        }
+
+        // Si el origen y el destino son el mismo, el camino es solo ese nodo
+        if (i == j) {
+            List<V> singlePath = new ArrayList<>();
+            singlePath.add(source);
+            return singlePath;
+        }
 
         List<V> path = new ArrayList<>();
-        path.add(source);
-        if (i == j) return path;
+        int curr = j; // Empezamos desde el destino
 
-        int curr = i;
-        while (curr != j) {
-            curr = predecessorMatrix[curr][j];
-            if (curr == -1) return Collections.emptyList(); // Seguridad
+        // Reconstruimos el camino HACIA ATRÁS
+        while (curr != -1 && curr != i) {
             path.add(vertices.get(curr));
+            curr = predecessorMatrix[i][curr]; 
         }
+
+        // Si se cortó el bucle y curr es -1 (no llegó al origen), hay un error en la matriz
+        if (curr == -1) {
+            return Collections.emptyList();
+        }
+
+        // Agregamos el origen y damos vuelta la lista
+        path.add(vertices.get(i));
+        Collections.reverse(path);
+
         return path;
     }
 }
