@@ -50,7 +50,7 @@ public class RuteoService {
      * Tabla de ruteo completa: latencia mínima y camino entre todos los pares de nodos activos.
      * Para un par sin conexión (o con un nodo caído) getCost da infinito y getPath, lista vacía.
      */
-    public IFloydWarshallResult tablaDeRuteo() {
+    public IFloydWarshallResult<Nodo> tablaDeRuteo() {
         return algoritmos.floyd(red.vistaActiva());
     }
 
