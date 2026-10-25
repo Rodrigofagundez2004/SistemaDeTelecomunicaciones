@@ -4,6 +4,7 @@ import java.util.List;
 
 import ucu.edu.aed.tda.grafo.IDirectedIGraph;
 import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
+import ucu.edu.aed.tda.grafo.Impl.VistaFiltrada;
 import ucu.edu.aed.tda.grafo.model.result.IDijkstraResult;
 import ucu.edu.aed.telecom.model.Enlace;
 import ucu.edu.aed.telecom.model.Nodo;
@@ -28,6 +29,21 @@ public class RuteoService {
      */
     public Ruta rutaDeMenorLatencia(String idOrigen, String idDestino) {
         return calcularRuta(red.vistaActiva(), idOrigen, idDestino);
+    }
+
+    /**
+     * Ruta de menor latencia que solo usa enlaces con al menos {@code mbpsMinimo} de ancho de banda.
+     * Se resuelve con el mismo Dijkstra, sobre una vista que además oculta los enlaces más lentos.
+     */
+    public Ruta rutaConAnchoDeBandaMinimo(String idOrigen, String idDestino, double mbpsMinimo) {
+        if (mbpsMinimo < 0)
+            throw new IllegalArgumentException("El ancho de banda minimo no puede ser negativo");
+        IDirectedIGraph<Nodo, PesoLatencia> vista = new VistaFiltrada<>(
+            red.vistaActiva(), 
+            nodo -> true,
+            peso -> peso.getEnlace().getAnchoDeBanda() >= mbpsMinimo);
+        
+        return calcularRuta(vista, idOrigen, idDestino);
     }
 
     /** TODO: tabla de ruteo completa (latencia mínima y camino entre todos los pares). */
