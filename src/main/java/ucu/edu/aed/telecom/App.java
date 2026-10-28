@@ -1,6 +1,5 @@
 package ucu.edu.aed.telecom;
 
-/** Punto de entrada del sistema. Esqueleto: menú a implementar. */
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,8 +14,11 @@ import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.Red;
 import ucu.edu.aed.telecom.model.ResultadoCableado;
 import ucu.edu.aed.telecom.model.Ruta;
+import ucu.edu.aed.telecom.model.UsoEnlace;
 import ucu.edu.aed.telecom.service.CableadoService;
 import ucu.edu.aed.telecom.service.CdnService;
+import ucu.edu.aed.telecom.service.ConsultasService;
+import ucu.edu.aed.telecom.service.ResilienciaService;
 import ucu.edu.aed.telecom.service.RuteoService;
 import ucu.edu.aed.utils.PrettyGrid;
 
@@ -41,10 +43,11 @@ public class App {
     private final RuteoService ruteo = new RuteoService(red);
     private final CdnService cdn = new CdnService(red);
     private final CableadoService cableado = new CableadoService();
+    private final ResilienciaService resiliencia = new ResilienciaService(red);
+    private final ConsultasService consultas = new ConsultasService(red);
 
     public static void main(String[] args) {
         System.out.println("Sistema de Telecomunicaciones - esqueleto");
-        System.out.println("TODO: cargar datos y mostrar el menú de operaciones");
         new App().ejecutar();
     }
 
@@ -69,6 +72,13 @@ public class App {
                     case "7" -> verSugerenciaDataCenter();
                     case "8" -> verCentroDeLaRed();
                     case "9" -> verCableadoOficinasNuevas();
+                    case "10" -> verEquiposCriticos();
+                    case "11" -> verEnlacesCriticos();
+                    case "12" -> verRutaAlternativa();
+                    case "13" -> verEnlacesSaturados();
+                    case "14" -> verRankingCriticidad();
+                    case "15" -> verClientesFueraDeSla();
+                    case "16" -> verRutasAsimetricas();
                     default -> System.out.println("Opción inválida");
                 }
             } catch (IllegalArgumentException e) {
@@ -81,19 +91,28 @@ public class App {
 
     private void mostrarMenu() {
         System.out.println();
-        System.out.println("--- Red ---");
+        System.out.println("--- Red actual ---");
         System.out.println("  1. Ver nodos y enlaces");
-        System.out.println("--- Ruteo ---");
+        System.out.println("--- Mejores rutas ---");
         System.out.println("  2. Ruta de menor latencia");
         System.out.println("  3. Ruta con ancho de banda mínimo");
-        System.out.println("--- CDN ---");
+        System.out.println("--- Distribucion de contenido ---");
         System.out.println("  4. Asignación de clientes a data centers");
         System.out.println("  5. Carga de data centers");
         System.out.println("  6. Latencia promedio ponderada");
         System.out.println("  7. Sugerir nuevo data center");
         System.out.println("  8. Centro de la red");
-        System.out.println("--- Cableado ---");
+        System.out.println("--- Nuevos Cableados ---");
         System.out.println("  9. Diseñar cableado de las oficinas nuevas de ejemplo");
+        System.out.println("--- Criticidad de la red ---");
+        System.out.println(" 10. Equipos críticos");
+        System.out.println(" 11. Enlaces críticos");
+        System.out.println(" 12. Ruta alternativa");
+        System.out.println("-------------------");
+        System.out.println(" 13. Enlaces saturados");
+        System.out.println(" 14. Ranking de criticidad");
+        System.out.println(" 15. Clientes fuera de SLA");
+        System.out.println(" 16. Rutas asimétricas");
         System.out.println("  0. Salir");
     }
 
@@ -349,6 +368,118 @@ public class App {
         if (origen.equals(destino)) {
             throw new IllegalArgumentException("origen y destino son el mismo nodo");
         }
+    }
+
+        // ---------- Resiliencia ----------
+
+    private void verEquiposCriticos() {
+        System.out.println("Equipos críticos (puntos de articulación): " + nombres(resiliencia.equiposCriticos()));
+    }
+
+    private void verEnlacesCriticos() {
+        List<String> enlaces = new ArrayList<>();
+        for (Enlace e : resiliencia.enlacesCriticos()) {
+            enlaces.add(e.getA().getId() + " <-> " + e.getB().getId());
+        }
+        System.out.println("Enlaces críticos (puentes): " + (enlaces.isEmpty() ? "ninguno" : String.join(", ", enlaces)));
+    }
+
+    private void verRutaAlternativa() {
+        String origen = leerNodo("Origen");
+        String destino = leerNodo("Destino");
+        validarDistintos(origen, destino);
+
+        Ruta principal = ruteo.rutaDeMenorLatencia(origen, destino);
+        if (!principal.existe()) {
+            System.out.println("No hay ruta de " + origen + " a " + destino + " con la red actual");
+            return;
+        }
+        System.out.println("\nRUTA PRINCIPAL");
+        mostrarRuta(principal);
+
+        Ruta alternativa = resiliencia.rutaAlternativa(origen, destino);
+        if (!alternativa.existe()) {
+            System.out.println("\nNo hay ruta alternativa sin nodos intermedios ni enlaces en común con la principal");
+            return;
+        }
+        System.out.println("\nRUTA ALTERNATIVA (+" + formato(alternativa.latencia() - principal.latencia()) + " ms)");
+        mostrarRuta(alternativa);
+    }
+
+    // ---------- Consultas propias ----------
+
+    private void verEnlacesSaturados() {
+        double umbral = aNumero(leerTexto("Umbral de utilización en % (ej. 80)")) / 100;
+        List<UsoEnlace> usos = consultas.enlacesSaturados(umbral);
+        if (usos.isEmpty()) {
+            System.out.println("Ningún enlace supera ese umbral.");
+            return;
+        }
+        String[][] filas = new String[usos.size()][];
+        List<String> nombresEnlaces = new ArrayList<>();
+        for (int i = 0; i < usos.size(); i++) {
+            UsoEnlace u = usos.get(i);
+            nombresEnlaces.add(u.enlace().getA().getId() + " <-> " + u.enlace().getB().getId());
+            filas[i] = new String[] {
+                    formato(u.demandaMbps()),
+                    formato(u.enlace().getAnchoDeBanda()),
+                    formato(u.utilizacion() * 100) + " %"
+            };
+        }
+        System.out.println("\nENLACES SATURADOS");
+        PrettyGrid.printLabeled(filas, TEXTO, List.of("Demanda Mbps", "Capacidad Mbps", "Uso"), nombresEnlaces, "Enlace");
+    }
+
+    private void verRankingCriticidad() {
+        List<Map.Entry<Nodo, Integer>> ranking = consultas.rankingCriticidad();
+        if (ranking.isEmpty()) {
+            System.out.println("No hay equipos críticos.");
+            return;
+        }
+        String[][] filas = new String[ranking.size()][];
+        List<String> equipos = new ArrayList<>();
+        for (int i = 0; i < ranking.size(); i++) {
+            equipos.add(ranking.get(i).getKey().getId());
+            filas[i] = new String[] {String.valueOf(ranking.get(i).getValue())};
+        }
+        System.out.println("\nRANKING DE CRITICIDAD (usuarios sin data center si cae el equipo)");
+        PrettyGrid.printLabeled(filas, TEXTO, List.of("Usuarios afectados"), equipos, "Equipo");
+    }
+
+    private void verClientesFueraDeSla() {
+        double maxRtt = aNumero(leerTexto("RTT máximo (ms)"));
+        Map<Nodo, Double> fuera = consultas.clientesFueraDeSla(maxRtt);
+        if (fuera.isEmpty()) {
+            System.out.println("Todos los clientes cumplen el SLA.");
+            return;
+        }
+        String[][] filas = new String[fuera.size()][];
+        List<String> clientes = new ArrayList<>();
+        int i = 0;
+        for (Map.Entry<Nodo, Double> e : fuera.entrySet()) {
+            clientes.add(e.getKey().getId());
+            filas[i++] = new String[] {formato(e.getValue()), String.valueOf(e.getKey().getUsuarios())};
+        }
+        System.out.println("\nCLIENTES FUERA DE SLA (" + formato(maxRtt) + " ms)");
+        PrettyGrid.printLabeled(filas, TEXTO, List.of("RTT ms", "Usuarios"), clientes, "Cliente");
+    }
+
+    private void verRutasAsimetricas() {
+        double tolerancia = aNumero(leerTexto("Tolerancia (%)"));
+        List<ConsultasService.ParAsimetrico> pares = consultas.rutasAsimetricas(tolerancia);
+        if (pares.isEmpty()) {
+            System.out.println("No hay pares con diferencia mayor a " + formato(tolerancia) + " %.");
+            return;
+        }
+        String[][] filas = new String[pares.size()][];
+        List<String> nombresPares = new ArrayList<>();
+        for (int i = 0; i < pares.size(); i++) {
+            ConsultasService.ParAsimetrico p = pares.get(i);
+            nombresPares.add(p.a().getId() + " <-> " + p.b().getId());
+            filas[i] = new String[] {formato(p.ida()), formato(p.vuelta()), formato(p.diferenciaPct()) + " %"};
+        }
+        System.out.println("\nRUTAS ASIMÉTRICAS (" + pares.size() + " pares)");
+        PrettyGrid.printLabeled(filas, TEXTO, List.of("Ida ms", "Vuelta ms", "Diferencia"), nombresPares, "Par");
     }
 
     /** Acepta coma o punto decimal. */
