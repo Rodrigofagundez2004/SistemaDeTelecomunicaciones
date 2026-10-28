@@ -47,7 +47,13 @@ public class UndirectedGraphAlgorithms implements IUndirectedGraphAlgorithm {
     }
 
     @Override
-    public <V, D extends WeightedEdge> IUndirectedGraph<V, D> prim(IUndirectedGraph<V, D> graph, Comparable<V> source) {
+    public <V, D extends WeightedEdge> IUndirectedGraph<V, D> prim(
+            IUndirectedGraph<V, D> graph, Comparable<V> source) {
+
+        if (graph.vertices().isEmpty()) {
+            return crearGrafoVacio();
+        }
+
         V origen = graph.buscarVertice(source);
         if (origen == null) {
             throw new IllegalArgumentException("El vértice origen no existe en el grafo");
@@ -119,7 +125,7 @@ public class UndirectedGraphAlgorithms implements IUndirectedGraphAlgorithm {
                 if (padre != null && bajo.get(w) >= num.get(v)) {
                     resultado.add(v);
                 }
-            } else if (!w.equals(padre)) {                   
+            } else if (!w.equals(padre)) {                
                 bajo.put(v, Math.min(bajo.get(v), num.get(w)));
             }
         }
@@ -147,13 +153,13 @@ public class UndirectedGraphAlgorithms implements IUndirectedGraphAlgorithm {
         bajo.put(v, num.get(v));
         for (Edge<V, D> e : g.adyacencias(g.construirComparable(v))) {
             V w = e.source().equals(v) ? e.target() : e.source();
-            if (!num.containsKey(w)) {                       
+            if (!num.containsKey(w)) {                    
                 puentesAux(g, w, v, num, bajo, contador, resultado);
                 bajo.put(v, Math.min(bajo.get(v), bajo.get(w)));
-                if (bajo.get(w) > num.get(v)) {            
+                if (bajo.get(w) > num.get(v)) {              
                     resultado.add(e);
                 }
-            } else if (!w.equals(padre)) {                   
+            } else if (!w.equals(padre)) {                  
                 bajo.put(v, Math.min(bajo.get(v), num.get(w)));
             }
         }
