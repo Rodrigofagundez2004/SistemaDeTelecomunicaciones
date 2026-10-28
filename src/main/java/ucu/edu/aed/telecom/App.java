@@ -1,15 +1,22 @@
 package ucu.edu.aed.telecom;
 
+/** Punto de entrada del sistema. Esqueleto: menú a implementar. */
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Scanner;
 
 import ucu.edu.aed.telecom.datos.RedDeEjemplo;
+import ucu.edu.aed.telecom.model.AsignacionCdn;
+import ucu.edu.aed.telecom.model.CargaDataCenter;
 import ucu.edu.aed.telecom.model.Enlace;
 import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.Red;
+import ucu.edu.aed.telecom.model.ResultadoCableado;
 import ucu.edu.aed.telecom.model.Ruta;
+import ucu.edu.aed.telecom.service.CableadoService;
+import ucu.edu.aed.telecom.service.CdnService;
 import ucu.edu.aed.telecom.service.RuteoService;
 import ucu.edu.aed.utils.PrettyGrid;
 
@@ -32,8 +39,12 @@ public class App {
     private final Scanner entrada = new Scanner(System.in);
     private final Red red = RedDeEjemplo.crear();
     private final RuteoService ruteo = new RuteoService(red);
+    private final CdnService cdn = new CdnService(red);
+    private final CableadoService cableado = new CableadoService();
 
     public static void main(String[] args) {
+        System.out.println("Sistema de Telecomunicaciones - esqueleto");
+        System.out.println("TODO: cargar datos y mostrar el menú de operaciones");
         new App().ejecutar();
     }
 
@@ -52,6 +63,12 @@ public class App {
                     case "0" -> seguir = false;
                     case "2" -> rutaMenorLatencia();
                     case "3" -> rutaConAnchoDeBanda();
+                    case "4" -> verAsignacionDataCenters();
+                    case "5" -> verCargaDataCenters();
+                    case "6" -> verLatenciaPromedio();
+                    case "7" -> verSugerenciaDataCenter();
+                    case "8" -> verCentroDeLaRed();
+                    case "9" -> verCableadoOficinasNuevas();
                     default -> System.out.println("Opción inválida");
                 }
             } catch (IllegalArgumentException e) {
@@ -69,6 +86,14 @@ public class App {
         System.out.println("--- Ruteo ---");
         System.out.println("  2. Ruta de menor latencia");
         System.out.println("  3. Ruta con ancho de banda mínimo");
+        System.out.println("--- CDN ---");
+        System.out.println("  4. Asignación de clientes a data centers");
+        System.out.println("  5. Carga de data centers");
+        System.out.println("  6. Latencia promedio ponderada");
+        System.out.println("  7. Sugerir nuevo data center");
+        System.out.println("  8. Centro de la red");
+        System.out.println("--- Cableado ---");
+        System.out.println("  9. Diseñar cableado de las oficinas nuevas de ejemplo");
         System.out.println("  0. Salir");
     }
 
@@ -113,7 +138,7 @@ public class App {
                 List.of("Medio", "Ida ms", "Vuelta ms", "Mbps", "Costo USD", "Estado"), nombresEnlaces, "Enlace");
     }
 
-        // ---------- Ruteo ----------
+    // ---------- Ruteo ----------
 
     private void rutaMenorLatencia() {
         String origen = leerNodo("Origen");
@@ -209,9 +234,100 @@ public class App {
         return minimo;
     }
 
+    // ---------- CDN ----------
+
+    /** Cada cliente activo con el data center de menor RTT; los que no alcanzan ninguno van aparte. */
+    private void verAsignacionDataCenters() {
+        AsignacionCdn asignacion = cdn.asignacionDataCenters();
+
+        List<String> clientes = new ArrayList<>();
+        String[][] filas = new String[asignacion.dcPorCliente().size()][];
+        int i = 0;
+        for (Map.Entry<Nodo, Nodo> entrada : asignacion.dcPorCliente().entrySet()) {
+            clientes.add(entrada.getKey().getId());
+            filas[i++] = new String[] {entrada.getValue().getId()};
+        }
+        System.out.println("\nCLIENTES CON SERVICIO (menor RTT)");
+        if (filas.length > 0) {
+            PrettyGrid.printLabeled(filas, TEXTO, List.of("Data center"), clientes, "Cliente");
+        }
+        System.out.println("Sin servicio: " + nombres(asignacion.sinServicio()));
+    }
+
+    private void verCargaDataCenters() {
+        List<CargaDataCenter> carga = cdn.cargaDataCenters();
+        String[][] filas = new String[carga.size()][];
+        List<String> dcs = new ArrayList<>();
+        for (int i = 0; i < carga.size(); i++) {
+            CargaDataCenter c = carga.get(i);
+            dcs.add(c.dc().getId());
+            filas[i] = new String[] {
+                    String.valueOf(c.usuariosAsignados()),
+                    String.valueOf(c.dc().getCapacidad()),
+                    c.sobrecargado() ? "SOBRECARGADO" : "OK"
+            };
+        }
+        System.out.println("\nCARGA DE DATA CENTERS");
+        if (filas.length == 0) {
+            System.out.println("No hay data centers activos.");
+            return;
+        }
+        PrettyGrid.printLabeled(filas, TEXTO, List.of("Usuarios", "Capacidad", "Estado"), dcs, "Data center");
+    }
+
+    private void verLatenciaPromedio() {
+        double promedio = cdn.latenciaPromedioPonderada();
+        if (Double.isInfinite(promedio)) {
+            System.out.println("Ningún usuario tiene servicio: no hay latencia promedio.");
+        } else {
+            System.out.println(String.format(Locale.US, "Latencia promedio ponderada: %.2f ms (RTT)", promedio));
+        }
+    }
+
+    private void verSugerenciaDataCenter() {
+        Nodo sugerido = cdn.sugerirNuevoDataCenter();
+        if (sugerido == null) {
+            System.out.println("Ningún candidato mejora la situación actual.");
+        } else {
+            System.out.println("Sugerencia de nuevo data center: " + sugerido.getId());
+        }
+    }
+
+    private void verCentroDeLaRed() {
+        Nodo centro = cdn.centroDeLaRed();
+        System.out.println(centro == null
+                ? "La red activa está partida: no hay centro."
+                : "Centro de la red: " + centro.getId());
+    }
+
+    // ---------- Cableado ----------
+
+    /** Diseña el cableado de las oficinas nuevas de ejemplo y muestra qué instalar y cuánto cuesta. */
+    private void verCableadoOficinasNuevas() {
+        List<Nodo> oficinas = RedDeEjemplo.oficinasNuevas();
+        List<Enlace> posibles = RedDeEjemplo.conexionesPosibles(red, oficinas);
+        ResultadoCableado r = cableado.disenarCableado(red, oficinas, posibles);
+
+        System.out.println("\nENLACES A INSTALAR");
+        if (r.aInstalar().isEmpty()) {
+            System.out.println("Ninguno.");
+        } else {
+            String[][] filas = new String[r.aInstalar().size()][];
+            List<String> nombres = new ArrayList<>();
+            for (int i = 0; i < r.aInstalar().size(); i++) {
+                Enlace e = r.aInstalar().get(i);
+                nombres.add(e.getA().getId() + " <-> " + e.getB().getId());
+                filas[i] = new String[] {e.getTipo().toString(), formato(e.getCosto())};
+            }
+            PrettyGrid.printLabeled(filas, TEXTO, List.of("Medio", "Costo USD"), nombres, "Enlace");
+        }
+        System.out.println("Costo total: " + formato(r.costoTotal()) + " USD");
+        System.out.println("Oficinas no conectables: " + nombres(r.noConectables()));
+    }
+
     // ---------- Entrada y formato ----------
 
-        /** Pide un id de nodo (sin importar mayúsculas) hasta que exista. Enter vacío cancela. */
+    /** Pide un id de nodo (sin importar mayúsculas) hasta que exista. Enter vacío cancela. */
     private String leerNodo(String mensaje) {
         while (true) {
             String id = leerTexto(mensaje).toUpperCase();
@@ -258,6 +374,15 @@ public class App {
             return String.format(Locale.US, "%.1f ms", segundos * 1000);
         }
         return String.format(Locale.US, "%.2f s", segundos);
+    }
+
+    /** Lista de ids separada por comas, o "ninguno". */
+    private static String nombres(Iterable<Nodo> nodos) {
+        List<String> ids = new ArrayList<>();
+        for (Nodo n : nodos) {
+            ids.add(n.getId());
+        }
+        return ids.isEmpty() ? "ninguno" : String.join(", ", ids);
     }
 
     /** 14.0 -> "14", 14.5 -> "14.5", infinito -> "sin ruta". */

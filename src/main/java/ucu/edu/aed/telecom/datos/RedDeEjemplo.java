@@ -3,6 +3,9 @@ package ucu.edu.aed.telecom.datos;
 import static ucu.edu.aed.telecom.model.TipoEnlace.*;
 import static ucu.edu.aed.telecom.model.TipoNodo.*;
 
+import java.util.List;
+
+import ucu.edu.aed.telecom.model.Enlace;
 import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.Red;
 import ucu.edu.aed.telecom.model.TipoEnlace;
@@ -116,6 +119,46 @@ public final class RedDeEjemplo {
         enlace(red, "AP-PLAYA", "SW-ESTE", 4, 4, RADIOENLACE, 300, 4000);
 
         return red;
+    }
+
+    /**
+     * Oficinas que todavía no están conectadas a la red. No se agregan a la {@link Red}: solo
+     * entran al grafo de planificación del cableado. OF-NUEVA-3 no tiene conexiones posibles, así
+     * que es la oficina que no se puede conectar.
+     */
+    public static List<Nodo> oficinasNuevas() {
+        return List.of(
+                new Nodo("OF-NUEVA-1", OFICINA, 30, 0),
+                new Nodo("OF-NUEVA-2", OFICINA, 15, 0),
+                new Nodo("OF-NUEVA-3", OFICINA, 10, 0));
+    }
+
+    /**
+     * Enlaces que se podrían instalar para las oficinas nuevas, con su costo en USD:
+     * <ul>
+     *     <li>OF-NUEVA-1 tiene dos opciones: SW-CENTRO (1200) y ED-CORDON (2500).</li>
+     *     <li>OF-NUEVA-2 puede unirse a OF-NUEVA-1 (600) o a SW-POCITOS (3000).</li>
+     * </ul>
+     * Los extremos de la red se toman de {@code red}, así comparten instancias con ella.
+     *
+     * @throws IllegalArgumentException si alguna oficina de la lista no existe
+     */
+    public static List<Enlace> conexionesPosibles(Red red, List<Nodo> oficinasNuevas) {
+        Nodo of1 = oficina(oficinasNuevas, "OF-NUEVA-1");
+        Nodo of2 = oficina(oficinasNuevas, "OF-NUEVA-2");
+
+        return List.of(
+                new Enlace(of1, red.getNodo("SW-CENTRO"), 2, FIBRA, 1000, 1200),
+                new Enlace(of1, red.getNodo("ED-CORDON"), 2, FIBRA, 1000, 2500),
+                new Enlace(of2, of1, 3, FIBRA, 1000, 600),
+                new Enlace(of2, red.getNodo("SW-POCITOS"), 4, FIBRA, 1000, 3000));
+    }
+
+    private static Nodo oficina(List<Nodo> oficinas, String id) {
+        return oficinas.stream()
+                .filter(o -> o.getId().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Falta la oficina " + id));
     }
 
     private static void nodo(Red red, String id, TipoNodo tipo, int usuarios, int capacidad) {
