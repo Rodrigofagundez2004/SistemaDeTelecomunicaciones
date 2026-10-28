@@ -17,7 +17,6 @@ import ucu.edu.aed.telecom.model.Ruta;
 import ucu.edu.aed.telecom.model.UsoEnlace;
 import ucu.edu.aed.telecom.service.CableadoService;
 import ucu.edu.aed.telecom.service.CdnService;
-import ucu.edu.aed.telecom.service.ConsultasService;
 import ucu.edu.aed.telecom.service.ResilienciaService;
 import ucu.edu.aed.telecom.service.RuteoService;
 import ucu.edu.aed.utils.PrettyGrid;
@@ -44,7 +43,6 @@ public class App {
     private final CdnService cdn = new CdnService(red);
     private final CableadoService cableado = new CableadoService();
     private final ResilienciaService resiliencia = new ResilienciaService(red);
-    private final ConsultasService consultas = new ConsultasService(red);
 
     public static void main(String[] args) {
         System.out.println("Sistema de Telecomunicaciones - esqueleto");
@@ -406,11 +404,9 @@ public class App {
         mostrarRuta(alternativa);
     }
 
-    // ---------- Consultas propias ----------
-
     private void verEnlacesSaturados() {
         double umbral = aNumero(leerTexto("Umbral de utilización en % (ej. 80)")) / 100;
-        List<UsoEnlace> usos = consultas.enlacesSaturados(umbral);
+        List<UsoEnlace> usos = cdn.enlacesSaturados(umbral);
         if (usos.isEmpty()) {
             System.out.println("Ningún enlace supera ese umbral.");
             return;
@@ -431,7 +427,7 @@ public class App {
     }
 
     private void verRankingCriticidad() {
-        List<Map.Entry<Nodo, Integer>> ranking = consultas.rankingCriticidad();
+        List<Map.Entry<Nodo, Integer>> ranking = resiliencia.rankingCriticidad();
         if (ranking.isEmpty()) {
             System.out.println("No hay equipos críticos.");
             return;
@@ -448,7 +444,7 @@ public class App {
 
     private void verClientesFueraDeSla() {
         double maxRtt = aNumero(leerTexto("RTT máximo (ms)"));
-        Map<Nodo, Double> fuera = consultas.clientesFueraDeSla(maxRtt);
+        Map<Nodo, Double> fuera = cdn.clientesFueraDeSla(maxRtt);
         if (fuera.isEmpty()) {
             System.out.println("Todos los clientes cumplen el SLA.");
             return;
@@ -464,9 +460,9 @@ public class App {
         PrettyGrid.printLabeled(filas, TEXTO, List.of("RTT ms", "Usuarios"), clientes, "Cliente");
     }
 
-    private void verRutasAsimetricas() {
+        private void verRutasAsimetricas() {
         double tolerancia = aNumero(leerTexto("Tolerancia (%)"));
-        List<ConsultasService.ParAsimetrico> pares = consultas.rutasAsimetricas(tolerancia);
+        List<Map.Entry<Ruta, Ruta>> pares = ruteo.rutasAsimetricas(tolerancia);
         if (pares.isEmpty()) {
             System.out.println("No hay pares con diferencia mayor a " + formato(tolerancia) + " %.");
             return;
@@ -474,9 +470,16 @@ public class App {
         String[][] filas = new String[pares.size()][];
         List<String> nombresPares = new ArrayList<>();
         for (int i = 0; i < pares.size(); i++) {
-            ConsultasService.ParAsimetrico p = pares.get(i);
-            nombresPares.add(p.a().getId() + " <-> " + p.b().getId());
-            filas[i] = new String[] {formato(p.ida()), formato(p.vuelta()), formato(p.diferenciaPct()) + " %"};
+            Ruta ida = pares.get(i).getKey();
+            Ruta vuelta = pares.get(i).getValue();
+            Nodo a = ida.nodos().get(0);
+            Nodo b = ida.nodos().get(ida.nodos().size() - 1);
+            nombresPares.add(a.getId() + " <-> " + b.getId());
+            filas[i] = new String[] {
+                    formato(ida.latencia()),
+                    formato(vuelta.latencia()),
+                    formato(RuteoService.diferenciaPct(ida.latencia(), vuelta.latencia())) + " %"
+            };
         }
         System.out.println("\nRUTAS ASIMÉTRICAS (" + pares.size() + " pares)");
         PrettyGrid.printLabeled(filas, TEXTO, List.of("Ida ms", "Vuelta ms", "Diferencia"), nombresPares, "Par");

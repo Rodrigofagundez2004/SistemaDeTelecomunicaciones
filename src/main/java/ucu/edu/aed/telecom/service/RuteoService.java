@@ -1,6 +1,10 @@
 package ucu.edu.aed.telecom.service;
 
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import ucu.edu.aed.tda.grafo.IDirectedIGraph;
 import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
@@ -75,5 +79,43 @@ public class RuteoService {
             return Ruta.inexistente();
 
         return new Ruta(camino, resultado.getCost(destino));
+    }
+
+    /**
+     * Rutas asimétricas: pares de nodos activos conectados cuya latencia mínima de
+     * ida y de vuelta difieren más de {@code toleranciaPct} (respecto de la menor).
+     * Floyd + recorrer los pares: O(V³ + V²).
+     *
+     * @return pares (ruta de ida, ruta de vuelta), de mayor a menor diferencia
+     */
+    public List<Map.Entry<Ruta, Ruta>> rutasAsimetricas(double toleranciaPct) {
+        if (toleranciaPct < 0) throw new IllegalArgumentException("La tolerancia no puede ser negativa");
+        IFloydWarshallResult<Nodo> tabla = tablaDeRuteo();
+        List<Nodo> activos = red.getNodos().stream().filter(Nodo::isActivo).toList();
+
+        List<Map.Entry<Ruta, Ruta>> asimetricos = new ArrayList<>();
+        for (int i = 0; i < activos.size(); i++) {
+            for (int j = i + 1; j < activos.size(); j++) {
+                Nodo a = activos.get(i);
+                Nodo b = activos.get(j);
+                double ida = tabla.getCost(a, b);
+                double vuelta = tabla.getCost(b, a);
+                if (Double.isInfinite(ida) || Double.isInfinite(vuelta) || Math.min(ida, vuelta) == 0) continue;
+                if (diferenciaPct(ida, vuelta) > toleranciaPct) {
+                    asimetricos.add(new AbstractMap.SimpleEntry<>(
+                            new Ruta(tabla.getPath(a, b), ida),
+                            new Ruta(tabla.getPath(b, a), vuelta)));
+                }
+            }
+        }
+        asimetricos.sort(Comparator.comparingDouble(
+                (Map.Entry<Ruta, Ruta> par) -> diferenciaPct(par.getKey().latencia(), par.getValue().latencia()))
+                .reversed());
+        return asimetricos;
+    }
+
+    /** Diferencia entre ida y vuelta relativa a la menor de las dos, en %. */
+    public static double diferenciaPct(double ida, double vuelta) {
+        return Math.abs(ida - vuelta) / Math.min(ida, vuelta) * 100;
     }
 }

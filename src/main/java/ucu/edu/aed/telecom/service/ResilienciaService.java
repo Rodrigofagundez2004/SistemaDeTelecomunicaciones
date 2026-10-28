@@ -1,8 +1,11 @@
 package ucu.edu.aed.telecom.service;
 
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -88,6 +91,24 @@ public class ResilienciaService {
             enlacesDeLaRuta.add(red.getEnlace(nodos.get(i).getId(), nodos.get(i + 1).getId()));
         }
         return ruteo.calcularRuta(red.vistaActivaSin(intermedios, enlacesDeLaRuta), idOrigen, idDestino);
+    }
+
+    /**
+     * Ranking de criticidad: para cada punto de articulación, cuántos usuarios
+     * quedan sin acceso a los data center si ese equipo cae. Ordenado de mayor a menor.
+     * Puntos de articulación O(V+E) + un BFS por equipo crítico: O(A·(V+E)).
+     */
+    public List<Map.Entry<Nodo, Integer>> rankingCriticidad() {
+        List<Map.Entry<Nodo, Integer>> ranking = new ArrayList<>();
+        for (Nodo critico : equiposCriticos()) {
+            int usuarios = 0;
+            for (Nodo afectado : incomunicadosSiFallaNodo(critico.getId())) {
+                usuarios += afectado.getUsuarios();
+            }
+            ranking.add(new AbstractMap.SimpleEntry<>(critico, usuarios));
+        }
+        ranking.sort(Map.Entry.<Nodo, Integer>comparingByValue().reversed());
+        return ranking;
     }
 
     /**

@@ -1,6 +1,8 @@
 package ucu.edu.aed.telecom.service;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -13,9 +15,11 @@ import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
 import ucu.edu.aed.tda.grafo.model.result.IFloydWarshallResult;
 import ucu.edu.aed.telecom.model.AsignacionCdn;
 import ucu.edu.aed.telecom.model.CargaDataCenter;
+import ucu.edu.aed.telecom.model.Enlace;
 import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.Red;
 import ucu.edu.aed.telecom.model.TipoNodo;
+import ucu.edu.aed.telecom.model.UsoEnlace;
 
 /**
  * Distribución de contenido (CDN): qué data center atiende a cada cliente, con qué latencia, y
@@ -152,6 +156,65 @@ public class CdnService {
      */
     public Nodo centroDeLaRed() {
         return new DirectedGraphAlgorithms().obtenerCentroGrafo(red.vistaActiva());
+    }
+
+    /**
+     * Clientes fuera de SLA: clientes activos cuyo RTT hacia su data center supera
+     * el máximo. Los clientes sin servicio también están fuera (RTT infinito).
+     * Floyd + mínimo por cliente: O(V³ + C·D).
+     *
+     * @return cliente → RTT actual en ms (infinito si no tiene servicio), de peor a mejor
+     */
+    public Map<Nodo, Double> clientesFueraDeSla(double maxRttMs) {
+        if (maxRttMs < 0) throw new IllegalArgumentException("El RTT máximo no puede ser negativo");
+        IFloydWarshallResult<Nodo> tabla = tabla();
+        AsignacionCdn asignacion = asignar(tabla);
+
+        List<Map.Entry<Nodo, Double>> fuera = new ArrayList<>();
+        for (Map.Entry<Nodo, Nodo> entrada : asignacion.dcPorCliente().entrySet()) {
+            double rttCliente = rtt(tabla, entrada.getKey(), entrada.getValue());
+            if (rttCliente > maxRttMs) fuera.add(new AbstractMap.SimpleEntry<>(entrada.getKey(), rttCliente));
+        }
+        for (Nodo sinServicio : asignacion.sinServicio()) {
+            fuera.add(new AbstractMap.SimpleEntry<>(sinServicio, Double.POSITIVE_INFINITY));
+        }
+        fuera.sort(Map.Entry.<Nodo, Double>comparingByValue().reversed());
+
+        Map<Nodo, Double> resultado = new LinkedHashMap<>();
+        for (Map.Entry<Nodo, Double> e : fuera) resultado.put(e.getKey(), e.getValue());
+        return resultado;
+    }
+
+    /**
+     * Enlaces saturados. Cada cliente con servicio descarga su demanda estimada
+     * desde su data center por la ruta de menor latencia.
+     * Devuelve los enlaces con utilización mayor al umbral, de mayor a menor.
+     * Floyd (asignación y caminos) + recorrer cada camino: O(V³ + C·L).
+     *
+     * @param umbral utilización mínima a reportar (1.0 = demanda igual al ancho de banda)
+     */
+    public List<UsoEnlace> enlacesSaturados(double umbral) {
+        if (umbral < 0) throw new IllegalArgumentException("El umbral no puede ser negativo");
+        IFloydWarshallResult<Nodo> tabla = tabla();
+        AsignacionCdn asignacion = asignar(tabla);
+
+        Map<Enlace, Double> demandaPorEnlace = new HashMap<>();
+        for (Map.Entry<Nodo, Nodo> entrada : asignacion.dcPorCliente().entrySet()) {
+            Nodo cliente = entrada.getKey();
+            List<Nodo> camino = tabla.getPath(entrada.getValue(), cliente);
+            for (int i = 0; i + 1 < camino.size(); i++) {
+                Enlace enlace = red.getEnlace(camino.get(i).getId(), camino.get(i + 1).getId());
+                demandaPorEnlace.merge(enlace, cliente.demandaEstimadaMbps(), Double::sum);
+            }
+        }
+
+        List<UsoEnlace> saturados = new ArrayList<>();
+        for (Map.Entry<Enlace, Double> entrada : demandaPorEnlace.entrySet()) {
+            UsoEnlace uso = new UsoEnlace(entrada.getKey(), entrada.getValue());
+            if (uso.utilizacion() > umbral) saturados.add(uso);
+        }
+        saturados.sort(Comparator.comparingDouble(UsoEnlace::utilizacion).reversed());
+        return saturados;
     }
 
     private AsignacionCdn asignar(IFloydWarshallResult<Nodo> tabla) {

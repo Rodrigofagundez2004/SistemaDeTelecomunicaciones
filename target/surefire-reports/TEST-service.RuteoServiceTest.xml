@@ -1,21 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="service.RuteoServiceTest" time="0.043" tests="18" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="service.RuteoServiceTest" time="0.034" tests="18" errors="0" skipped="0" failures="0">
   <properties>
-    <property name="jpda.address" value="65186"/>
     <property name="java.specification.version" value="26"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
     <property name="java.class.path" value="/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/test-classes:/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/classes:/Users/rodrigarcia/.m2/repository/org/junit/jupiter/junit-jupiter/5.10.2/junit-jupiter-5.10.2.jar:/Users/rodrigarcia/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar:/Users/rodrigarcia/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/Users/rodrigarcia/.m2/repository/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar:/Users/rodrigarcia/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/Users/rodrigarcia/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar:/Users/rodrigarcia/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar:/Users/rodrigarcia/.m2/repository/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar:"/>
     <property name="java.vm.vendor" value="Oracle Corporation"/>
     <property name="sun.arch.data.model" value="64"/>
     <property name="java.vendor.url" value="https://java.oracle.com/"/>
-    <property name="user.timezone" value="America/Montevideo"/>
-    <property name="forkMode" value="once"/>
     <property name="os.name" value="Mac OS X"/>
     <property name="java.vm.specification.version" value="26"/>
     <property name="user.country" value="UY"/>
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="sun.boot.library.path" value="/Library/Java/JavaVirtualMachines/jdk-26.jdk/Contents/Home/lib"/>
-    <property name="sun.java.command" value="/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire/surefirebooter-20261025193329004_3.jar /Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire 2026-10-25T19-33-28_963-jvmRun1 surefire-20261025193329004_1tmp surefire_0-20261025193329004_2tmp"/>
+    <property name="sun.java.command" value="/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire/surefirebooter-20261028181200526_3.jar /Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire 2026-10-28T18-12-00_484-jvmRun1 surefire-20261028181200526_1tmp surefire_0-20261028181200526_2tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="test" value="service.RuteoServiceTest"/>
@@ -33,7 +30,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire/surefirebooter-20261025193329004_3.jar"/>
+    <property name="surefire.real.class.path" value="/Users/rodrigarcia/Documents/UCU/Algoritmos/SistemaDeTelecomunicaciones/target/surefire/surefirebooter-20261028181200526_3.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="26.0.2+10-55"/>
@@ -44,7 +41,6 @@
     <property name="java.runtime.name" value="Java(TM) SE Runtime Environment"/>
     <property name="file.encoding" value="UTF-8"/>
     <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM"/>
-    <property name="jpda.listen" value="true"/>
     <property name="maven.ext.class.path" value="/Users/rodrigarcia/.vscode/extensions/oracle.oracle-java-27.0.0/nbcode/java/maven-nblib/netbeans-eventspy.jar"/>
     <property name="localRepository" value="/Users/rodrigarcia/.m2/repository"/>
     <property name="java.vendor.url.bug" value="https://bugreport.java.com/bugreport/"/>
@@ -63,24 +59,23 @@
     <property name="sun.io.unicode.encoding" value="UnicodeBig"/>
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="70.0"/>
-    <property name="maven.surefire.debug" value="-agentlib:jdwp=transport=dt_socket,server=n,address=65186"/>
   </properties>
-  <testcase name="tablaCoincideConDijkstraEnUnPar" classname="service.RuteoServiceTest" time="0.017"/>
+  <testcase name="tablaCoincideConDijkstraEnUnPar" classname="service.RuteoServiceTest" time="0.012"/>
   <testcase name="fallaDeEnlaceDesvia" classname="service.RuteoServiceTest" time="0.001"/>
-  <testcase name="origenCaido" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="origenCaido" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="tablaRespetaFallas" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="anchoDeBandaSinRuta" classname="service.RuteoServiceTest" time="0.001"/>
-  <testcase name="anchoDeBandaRadioenlace" classname="service.RuteoServiceTest" time="0.002"/>
+  <testcase name="anchoDeBandaRadioenlace" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="rttSinRuta" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="origenIgualDestino" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="anchoDeBandaNegativo" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="anchoDeBandaLimiteInclusivo" classname="service.RuteoServiceTest" time="0.0"/>
   <testcase name="anchoDeBandaRespetaFallas" classname="service.RuteoServiceTest" time="0.0"/>
-  <testcase name="anchoDeBandaQueAlcanza" classname="service.RuteoServiceTest" time="0.001"/>
-  <testcase name="fallaDeNodoSinRuta" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="anchoDeBandaQueAlcanza" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="fallaDeNodoSinRuta" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="rutaDeMenorLatenciaIda" classname="service.RuteoServiceTest" time="0.0"/>
-  <testcase name="nodoInexistente" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="nodoInexistente" classname="service.RuteoServiceTest" time="0.001"/>
   <testcase name="latenciaIdaYVueltaSumaIdaYVuelta" classname="service.RuteoServiceTest" time="0.001"/>
-  <testcase name="anchoDeBandaObligaADesviar" classname="service.RuteoServiceTest" time="0.001"/>
-  <testcase name="rutaDeMenorLatenciaVuelta" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="anchoDeBandaObligaADesviar" classname="service.RuteoServiceTest" time="0.0"/>
+  <testcase name="rutaDeMenorLatenciaVuelta" classname="service.RuteoServiceTest" time="0.001"/>
 </testsuite>
