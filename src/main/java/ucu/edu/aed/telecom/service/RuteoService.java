@@ -64,7 +64,7 @@ public class RuteoService {
     }
 
     /** Corre Dijkstra desde el origen sobre la vista recibida y arma la Ruta hasta el destino. */
-    private Ruta calcularRuta(IDirectedIGraph<Nodo, PesoLatencia> vista, String idOrigen, String idDestino) {
+    Ruta calcularRuta(IDirectedIGraph<Nodo, PesoLatencia> vista, String idOrigen, String idDestino) {
         Nodo origen = red.getNodo(idOrigen);
         Nodo destino = red.getNodo(idDestino);
 

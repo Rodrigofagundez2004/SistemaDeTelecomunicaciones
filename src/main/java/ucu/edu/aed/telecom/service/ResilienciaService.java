@@ -1,292 +1,113 @@
 package ucu.edu.aed.telecom.service;
 
-import java.util.AbstractMap;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.Objects;
 import java.util.Set;
 
-import ucu.edu.aed.tda.grafo.IUndirectedGraph;
+import ucu.edu.aed.tda.grafo.IDirectedIGraph;
+import ucu.edu.aed.tda.grafo.Impl.DirectedGraphAlgorithms;
 import ucu.edu.aed.tda.grafo.Impl.UndirectedGraphAlgorithms;
 import ucu.edu.aed.tda.grafo.model.edge.Edge;
-
-import ucu.edu.aed.telecom.model.Nodo;
 import ucu.edu.aed.telecom.model.Enlace;
+import ucu.edu.aed.telecom.model.Nodo;
+import ucu.edu.aed.telecom.model.PesoCosto;
+import ucu.edu.aed.telecom.model.PesoLatencia;
+import ucu.edu.aed.telecom.model.Red;
+import ucu.edu.aed.telecom.model.Ruta;
 
+/**
+ * Resiliencia: equipos y enlaces críticos, qué queda incomunicado ante una falla y rutas alternativas.
+ * Las simulaciones usan {@link Red#vistaActivaSin}: nunca modifican la red.
+ */
 public class ResilienciaService {
 
-    private final UndirectedGraphAlgorithms algoritmos =
-            new UndirectedGraphAlgorithms();
+    private final Red red;
+    private final RuteoService ruteo;
+    private final UndirectedGraphAlgorithms algNoDirigidos = new UndirectedGraphAlgorithms();
+    private final DirectedGraphAlgorithms algDirigidos = new DirectedGraphAlgorithms();
 
-    public Set<Nodo> equiposCriticos(
-            IUndirectedGraph<Nodo, Enlace> red) {
-
-        return algoritmos.puntosDeArticulacion(red);
+    public ResilienciaService(Red red) {
+        this.red = Objects.requireNonNull(red, "La red no puede ser null");
+        this.ruteo = new RuteoService(red);
     }
 
-    public Set<Edge<Nodo, Enlace>> enlacesCriticos(
-            IUndirectedGraph<Nodo, Enlace> red) {
-
-        return algoritmos.puentes(red);
+    /** Puntos de articulación del grafo físico: equipos cuya caída parte la red instalada. */
+    public Set<Nodo> equiposCriticos() {
+        return algNoDirigidos.puntosDeArticulacion(red.getGrafoFisico());
     }
 
-    public Set<Nodo> incomunicadosSiFallaNodo(
-            IUndirectedGraph<Nodo, Enlace> red, Nodo nodo) {
-
-        verificarExiste(red, nodo);
-
-        return incomunicados(red, nodo, null, null);
+    /** Puentes del grafo físico: enlaces cuya caída parte la red instalada. */
+    public Set<Enlace> enlacesCriticos() {
+        Set<Enlace> criticos = new LinkedHashSet<>();
+        for (Edge<Nodo, PesoCosto> arista : algNoDirigidos.puentes(red.getGrafoFisico())) {
+            criticos.add(arista.dato().getEnlace());
+        }
+        return criticos;
     }
 
-    public Set<Nodo> incomunicadosSiFallaEnlace(
-            IUndirectedGraph<Nodo, Enlace> red, Nodo a, Nodo b) {
-
-        verificarExiste(red, a);
-        verificarExiste(red, b);
-
-        boolean existe = false;
-
-        for (Edge<Nodo, Enlace> e :
-                red.adyacencias(red.construirComparable(a))) {
-
-            if (e.source().equals(b) || e.target().equals(b)) {
-                existe = true;
-                break;
-            }
-        }
-
-        if (!existe) {
-            throw new IllegalArgumentException(
-                    "No existe el enlace entre esos equipos");
-        }
-
-        return incomunicados(red, null, a, b);
+    /** Nodos activos que no alcanzarían ningún data center si cae el nodo indicado (no se incluye a sí mismo). */
+    public Set<Nodo> incomunicadosSiFallaNodo(String id) {
+        Nodo caido = red.getNodo(id);
+        return incomunicados(red.vistaActivaSin(Set.of(caido), Set.of()));
     }
 
-    public List<Nodo> rutaAlternativa(
-            IUndirectedGraph<Nodo, Enlace> red,
-            Nodo origen,
-            Nodo destino,
-            List<Nodo> rutaPrincipal) {
-
-        verificarExiste(red, origen);
-        verificarExiste(red, destino);
-
-        if (origen.equals(destino)) {
-            List<Nodo> camino = new ArrayList<>();
-            camino.add(origen);
-            return camino;
+    /**
+     * Nodos activos que no alcanzarían ningún data center si cae el enlace indicado.
+     *
+     * @throws IllegalArgumentException si algún id no existe o no hay enlace entre esos nodos
+     */
+    public Set<Nodo> incomunicadosSiFallaEnlace(String idA, String idB) {
+        Enlace enlace = red.getEnlace(idA, idB);
+        if (enlace == null) {
+            throw new IllegalArgumentException("No existe un enlace entre " + idA + " y " + idB);
         }
-
-        Set<Nodo> nodosProhibidos = new HashSet<>();
-
-        if (rutaPrincipal != null) {
-            for (int i = 1; i < rutaPrincipal.size() - 1; i++) {
-                nodosProhibidos.add(rutaPrincipal.get(i));
-            }
-        }
-
-        Map<Nodo, Double> costos = new HashMap<>();
-        Map<Nodo, Nodo> predecesores = new HashMap<>();
-
-        costos.put(origen, 0.0);
-
-        PriorityQueue<Map.Entry<Nodo, Double>> cola =
-                new PriorityQueue<>(Map.Entry.comparingByValue());
-
-        cola.add(new AbstractMap.SimpleEntry<>(origen, 0.0));
-
-        Set<Nodo> procesados = new HashSet<>();
-
-        while (!cola.isEmpty()) {
-            Nodo u = cola.poll().getKey();
-
-            if (procesados.contains(u)) {
-                continue;
-            }
-
-            procesados.add(u);
-
-            if (u.equals(destino)) {
-                break;
-            }
-
-            for (Edge<Nodo, Enlace> e :
-                    red.adyacencias(red.construirComparable(u))) {
-
-                Nodo w;
-
-                if (e.source().equals(u)) {
-                    w = e.target();
-                } else {
-                    w = e.source();
-                }
-
-                if (nodosProhibidos.contains(w)) {
-                    continue;
-                }
-
-                if (enRuta(rutaPrincipal, u, w)) {
-                    continue;
-                }
-
-                double nuevoCosto =
-                        costos.get(u) + e.dato().getWeight();
-
-                double costoAnterior =
-                        costos.getOrDefault(
-                                w, Double.POSITIVE_INFINITY);
-
-                if (nuevoCosto < costoAnterior) {
-                    costos.put(w, nuevoCosto);
-                    predecesores.put(w, u);
-
-                    cola.add(
-                            new AbstractMap.SimpleEntry<>(w, nuevoCosto));
-                }
-            }
-        }
-
-        if (!costos.containsKey(destino)) {
-            return new ArrayList<>();
-        }
-
-        LinkedList<Nodo> camino = new LinkedList<>();
-        Nodo actual = destino;
-
-        while (actual != null) {
-            camino.addFirst(actual);
-            actual = predecesores.get(actual);
-        }
-
-        return camino;
+        return incomunicados(red.vistaActivaSin(Set.of(), Set.of(enlace)));
     }
 
-    private boolean enRuta(
-            List<Nodo> ruta, Nodo u, Nodo w) {
-
-        if (ruta == null) {
-            return false;
+    /**
+     * Ruta de menor latencia que no comparte nodos intermedios ni enlaces con la ruta principal.
+     * Limitación: método de dos pasos; puede no encontrar alternativa aunque exista (exacto: Suurballe).
+     *
+     * @return la alternativa, o Ruta.inexistente() si no hay ruta principal o no hay alternativa
+     */
+    public Ruta rutaAlternativa(String idOrigen, String idDestino) {
+        if (idOrigen.equals(idDestino)) {
+            throw new IllegalArgumentException("Origen y destino son el mismo nodo");
+        }
+        Ruta principal = ruteo.rutaDeMenorLatencia(idOrigen, idDestino);
+        if (!principal.existe()) {
+            return Ruta.inexistente();
         }
 
-        for (int i = 0; i + 1 < ruta.size(); i++) {
-            Nodo a = ruta.get(i);
-            Nodo b = ruta.get(i + 1);
-
-            if (a.equals(u) && b.equals(w)) {
-                return true;
-            }
-
-            if (a.equals(w) && b.equals(u)) {
-                return true;
-            }
+        List<Nodo> nodos = principal.nodos();
+        Set<Nodo> intermedios = new HashSet<>(nodos.subList(1, nodos.size() - 1));
+        Set<Enlace> enlacesDeLaRuta = new HashSet<>();
+        for (int i = 0; i + 1 < nodos.size(); i++) {
+            enlacesDeLaRuta.add(red.getEnlace(nodos.get(i).getId(), nodos.get(i + 1).getId()));
         }
-
-        return false;
+        return ruteo.calcularRuta(red.vistaActivaSin(intermedios, enlacesDeLaRuta), idOrigen, idDestino);
     }
 
-    private void verificarExiste(
-            IUndirectedGraph<Nodo, Enlace> red, Nodo n) {
-
-        if (red.buscarVertice(red.construirComparable(n)) == null) {
-            throw new IllegalArgumentException(
-                    "El equipo no existe en la red");
-        }
-    }
-
-    private Set<Nodo> incomunicados(
-            IUndirectedGraph<Nodo, Enlace> red,
-            Nodo nodoCaido,
-            Nodo extremoA,
-            Nodo extremoB) {
-
-        Set<Nodo> visitados = new HashSet<>();
-        List<Nodo> mayor = new ArrayList<>();
-        List<List<Nodo>> otras = new ArrayList<>();
-
-        for (Nodo inicio : red.vertices()) {
-
-            if (nodoCaido != null && inicio.equals(nodoCaido)) {
-                continue;
-            }
-
-            if (visitados.contains(inicio)) {
-                continue;
-            }
-
-            List<Nodo> componente = new ArrayList<>();
-            Deque<Nodo> pila = new ArrayDeque<>();
-
-            pila.push(inicio);
-            visitados.add(inicio);
-
-            while (!pila.isEmpty()) {
-                Nodo u = pila.pop();
-                componente.add(u);
-
-                for (Edge<Nodo, Enlace> e :
-                        red.adyacencias(red.construirComparable(u))) {
-
-                    Nodo w;
-
-                    if (e.source().equals(u)) {
-                        w = e.target();
-                    } else {
-                        w = e.source();
-                    }
-
-                    if (nodoCaido != null && w.equals(nodoCaido)) {
-                        continue;
-                    }
-
-                    if (visitados.contains(w)) {
-                        continue;
-                    }
-
-                    boolean enlaceCaido = false;
-
-                    if (extremoA != null && extremoB != null) {
-                        if (u.equals(extremoA) && w.equals(extremoB)) {
-                            enlaceCaido = true;
-                        }
-
-                        if (u.equals(extremoB) && w.equals(extremoA)) {
-                            enlaceCaido = true;
-                        }
-                    }
-
-                    if (enlaceCaido) {
-                        continue;
-                    }
-
-                    visitados.add(w);
-                    pila.push(w);
-                }
-            }
-
-            if (componente.size() > mayor.size()) {
-                if (!mayor.isEmpty()) {
-                    otras.add(mayor);
-                }
-
-                mayor = componente;
-            } else {
-                otras.add(componente);
+    /**
+     * BFS desde cada data center visible; lo que ningún BFS alcanza queda incomunicado.
+     * Alcanza con un sentido porque cada enlace da dos arcos y una falla oculta los dos.
+     * Si un DC ya fue alcanzado se saltea: su componente ya está recorrida, así el total es O(V+E).
+     */
+    private Set<Nodo> incomunicados(IDirectedIGraph<Nodo, PesoLatencia> vista) {
+        Set<Nodo> alcanzados = new HashSet<>();
+        for (Nodo nodo : vista.vertices()) {
+            if (nodo.esDataCenter() && !alcanzados.contains(nodo)) {
+                algDirigidos.recorridoEnAmplitud(vista, vista.construirComparable(nodo), alcanzados::add);
             }
         }
-
-        Set<Nodo> resultado = new HashSet<>();
-
-        for (List<Nodo> componente : otras) {
-            resultado.addAll(componente);
+        Set<Nodo> resultado = new LinkedHashSet<>();
+        for (Nodo nodo : vista.vertices()) {
+            if (!alcanzados.contains(nodo)) {
+                resultado.add(nodo);
+            }
         }
-
         return resultado;
     }
 }
