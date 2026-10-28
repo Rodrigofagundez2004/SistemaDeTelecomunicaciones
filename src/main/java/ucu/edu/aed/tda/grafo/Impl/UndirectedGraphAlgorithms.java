@@ -58,6 +58,11 @@ public class UndirectedGraphAlgorithms implements IUndirectedGraphAlgorithm {
     public <V, D extends WeightedEdge> IUndirectedGraph<V, D> prim(
             IUndirectedGraph<V, D> graph, Comparable<V> source) {
 
+        if (graph.vertices().isEmpty()) {
+            // Sin vértices no hay nada que conectar: el árbol también es vacío
+            return crearGrafoVacio();
+        }
+
         V origen = graph.buscarVertice(source);
 
         if (origen == null) {
@@ -207,5 +212,3 @@ public class UndirectedGraphAlgorithms implements IUndirectedGraphAlgorithm {
         return new UndirectedGraph<>();
     }
 }
-
-

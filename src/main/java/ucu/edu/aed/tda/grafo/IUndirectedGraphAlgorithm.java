@@ -4,6 +4,7 @@ package ucu.edu.aed.tda.grafo;
 import java.util.Collection;
 import java.util.function.Consumer;
 
+import ucu.edu.aed.tda.grafo.Impl.UndirectedGraph;
 import ucu.edu.aed.tda.grafo.model.edge.Edge;
 import ucu.edu.aed.tda.grafo.model.edge.WeightedEdge;
 
@@ -14,7 +15,7 @@ public interface IUndirectedGraphAlgorithm {
     <V, D extends WeightedEdge> IUndirectedGraph<V, D> kruskal(IUndirectedGraph<V, D> graph);
 
     /**
-     * ejecuta el algoritmo Prim sobre el grafo
+     * ejecuta el algoritmo Prim sobre el grafo. Si el grafo está vacío devuelve un grafo vacío.
      */
     <V, D extends WeightedEdge> IUndirectedGraph<V, D> prim(IUndirectedGraph<V, D> graph, Comparable<V> source);
 
@@ -27,7 +28,7 @@ public interface IUndirectedGraphAlgorithm {
             return prim(graph, graph.construirComparable(vertex));
         }
 
-        return null;
+        return new UndirectedGraph<>();
     }
 
 
